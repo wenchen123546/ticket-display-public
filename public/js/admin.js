@@ -5,7 +5,9 @@ const passwordInput = document.getElementById("password-input");
 const loginButton = document.getElementById("login-button");
 const loginError = document.getElementById("login-error");
 const numberEl = document.getElementById("number");
+const statusBar = document.getElementById("status-bar"); // 【新增】
 
+// 抓取 GUI 元素
 const passedListUI = document.getElementById("passed-list-ui");
 const newPassedNumberInput = document.getElementById("new-passed-number");
 const addPassedBtn = document.getElementById("add-passed-btn");
@@ -19,9 +21,6 @@ const saveFeaturedButton = document.getElementById("saveFeaturedContents");
 
 // --- 2. 全域變數 ---
 let token = "";
-// (已移除 LocalStorage 的 TOKEN_KEY)
-
-// 【新增】 用於 UI 編輯的本地暫存陣列
 let localPassedNumbers = [];
 let localFeaturedContents = [];
 
@@ -35,14 +34,12 @@ function showLogin() {
     document.title = "後台管理 - 登入";
     socket.disconnect(); 
 }
-
 function showPanel() {
     loginContainer.style.display = "none";
     adminPanel.style.display = "block";
     document.title = "後台管理 - 控制台";
     socket.connect(); 
 }
-
 async function checkToken(tokenToCheck) {
     if (!tokenToCheck) return false;
     try {
@@ -57,7 +54,6 @@ async function checkToken(tokenToCheck) {
         return false;
     }
 }
-
 async function attemptLogin(tokenToCheck) {
     loginError.textContent = "驗證中...";
     const isValid = await checkToken(tokenToCheck);
@@ -69,12 +65,9 @@ async function attemptLogin(tokenToCheck) {
         showLogin();
     }
 }
-
-/** 頁面載入完成時的入口 (強制顯示登入) */
 document.addEventListener("DOMContentLoaded", () => {
     showLogin();
 });
-
 loginButton.addEventListener("click", () => {
     attemptLogin(passwordInput.value);
 });
@@ -85,18 +78,27 @@ passwordInput.addEventListener("keyup", (event) => {
 });
 
 // --- 5. 控制台 Socket 監聽器 ---
-socket.on("connect", () => { console.log("Socket.io 已連接"); });
-socket.on("update", (num) => (numberEl.textContent = num));
+socket.on("connect", () => { 
+    console.log("Socket.io 已連接");
+    statusBar.classList.remove("visible"); // 【新增】 隱藏提示條
+});
 
+// 【新增】 監聽斷線事件
+socket.on("disconnect", () => {
+    console.warn("Socket.io 已斷線");
+    statusBar.classList.add("visible");
+});
+
+socket.on("update", (num) => (numberEl.textContent = num));
 socket.on("updatePassed", (numbers) => {
     localPassedNumbers = numbers.map(Number);
     renderPassedListUI(); 
 });
-
 socket.on("updateFeaturedContents", (contents) => {
     localFeaturedContents = contents;
     renderFeaturedListUI(); 
 });
+
 
 // --- 6. API 請求函式 ---
 async function apiRequest(endpoint, body) {
@@ -146,7 +148,6 @@ function renderPassedListUI() {
         passedListUI.appendChild(li);
     });
 }
-
 function renderFeaturedListUI() {
     featuredListUI.innerHTML = ""; 
     localFeaturedContents.forEach((item, index) => {
@@ -171,7 +172,6 @@ function renderFeaturedListUI() {
 async function changeNumber(direction) {
     await apiRequest("/change-number", { direction });
 }
-
 async function setNumber() {
     const num = document.getElementById("manualNumber").value;
     if (num === "") return;
@@ -180,7 +180,6 @@ async function setNumber() {
         document.getElementById("manualNumber").value = "";
     }
 }
-
 async function savePassedNumbers() {
     savePassedButton.disabled = true;
     savePassedButton.textContent = "儲存中...";
@@ -193,7 +192,6 @@ async function savePassedNumbers() {
     savePassedButton.disabled = false;
     savePassedButton.textContent = "儲存過號列表";
 }
-
 async function saveFeaturedContents() {
     saveFeaturedButton.disabled = true;
     saveFeaturedButton.textContent = "儲存中...";
@@ -206,10 +204,7 @@ async function saveFeaturedContents() {
     saveFeaturedButton.disabled = false;
     saveFeaturedButton.textContent = "儲存精選連結";
 }
-
-// --- 重置功能 ---
 async function resetNumber() {
-    // 【修改】 移除了括號中的提示
     if (!confirm("確定要將「目前號碼」重置為 0 嗎？")) return;
     const success = await apiRequest("/set-number", { number: 0 });
     if (success) { document.getElementById("manualNumber").value = ""; alert("號碼已重置為 0。"); }
@@ -240,6 +235,7 @@ document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents
 document.getElementById("resetPassed").onclick = resetPassed;
 document.getElementById("resetAll").onclick = resetAll;
 
+// 綁定 GUI 新增按鈕
 addPassedBtn.onclick = () => {
     const num = Number(newPassedNumberInput.value);
     if (num > 0 && !localPassedNumbers.includes(num)) {
@@ -274,23 +270,18 @@ addFeaturedBtn.onclick = () => {
 };
 
 // --- 10. 【新增】 綁定 Enter 鍵 ---
-
-// 綁定「新增過號」的 Enter 鍵
 newPassedNumberInput.addEventListener("keyup", (event) => {
     if (event.key === "Enter") {
         addPassedBtn.click(); // 觸發「+」按鈕的點擊
     }
 });
-
-// 綁定「新增連結」的 Enter 鍵
 newLinkTextInput.addEventListener("keyup", (event) => {
     if (event.key === "Enter") {
-        // 在第一個輸入框按 Enter，自動跳到下一個
-        newLinkUrlInput.focus();
+        newLinkUrlInput.focus(); // 跳到下一個輸入框
     }
 });
 newLinkUrlInput.addEventListener("keyup", (event) => {
     if (event.key === "Enter") {
-        addFeaturedBtn.click(); // 在第二個輸入框按 Enter，觸發「+」
+        addFeaturedBtn.click(); // 觸發「+」按鈕的點擊
     }
 });
