@@ -185,7 +185,9 @@ async function saveFeaturedContents() {
 
 // --- 重置功能 ---
 async function resetNumber() {
+    // 【修復】 加回確認
     if (!confirm("確定要將「目前號碼」重置為 0 嗎？ (會將現有號碼加入過號列表)")) return;
+    
     const success = await apiRequest("/set-number", { number: 0 });
     if (success) {
         document.getElementById("manualNumber").value = "";
@@ -194,11 +196,15 @@ async function resetNumber() {
 }
 
 async function resetPassed() {
+    // 【修復】 加回確認
     if (!confirm("確定要清空「已叫號碼(過號)」列表嗎？")) return;
+    
     await apiRequest("/set-passed-numbers", { numbers: [] });
+    // (成功時不用 alert，socket 會自動更新)
 }
 
 async function resetFeaturedContents() {
+    // 【修復】 加回確認
     if (!confirm("確定要清空「精選連結」嗎？")) {
         return;
     }
