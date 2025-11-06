@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>候位號碼顯示</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      text-align: center;
+      background: #f0f4f8;
+      margin: 0;
+      padding-top: 80px;
+    }
+    h1 {
+      font-size: 3rem;
+      color: #dc2626;
+      margin: 0;
+    }
+    h2 {
+      font-size: 4rem;
+      color: #333;
+      margin: 20px 0 0 0;
+    }
+    #number {
+      font-size: 10rem;
+      color: #2563eb;
+      margin: 30px 0;
+    }
+    #displayText {
+      font-size: 3rem;
+      color: #333;
+      margin-top: 20px;
+      min-height: 3.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>💉熱血不宜攔！🩸</h1>
+  <h2>目前號碼：</h2>
+  <h3 id="number">0</h3>
+  <h4 id="displayText"></h4>
+
+  <script>
+    const socket = io();
+    const numberEl = document.getElementById("number");
+    const textEl = document.getElementById("displayText");
+
+    socket.on("update", (num) => {
+      numberEl.textContent = num;
+    });
+
+    socket.on("updateText", (text) => {
+      textEl.textContent = text || "";
+    });
+  </script>
+</body>
+</html>
