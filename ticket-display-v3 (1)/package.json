@@ -1,0 +1,13 @@
+{
+  "name": "ticket-display-v3",
+  "version": "1.0.0",
+  "description": "Live number display with custom text and control",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.1"
+  }
+}
