@@ -1,12 +1,5 @@
 /* --- 1. 基礎 & 登入頁 --- */
-body {
-    font-family: "Microsoft JhengHei", sans-serif;
-    text-align: center;
-    background: #f0f4f8;
-    margin: 0;
-    padding: 20px;
-    padding-top: 30px;
-}
+body { font-family: "Microsoft JhengHei", sans-serif; text-align: center; background: #f0f4f8; margin: 0; padding: 20px; padding-top: 30px; }
 #login-container { max-width: 400px; width: 90%; box-sizing: border-box; margin: 50px auto; padding: 30px; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
 #login-container h1 { font-size: 2.2rem; color: #dc2626; margin-top: 0; margin-bottom: 25px; }
 #login-container input { font-size: 1.2rem; padding: 12px; width: 100%; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; text-align: left; }
@@ -65,33 +58,21 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 .sound-toggle-group label { font-size: 1.2rem; font-weight: bold; color: #333; margin: 0; }
 .sound-toggle-group input[type="checkbox"] { width: 24px; height: 24px; margin: 0; cursor: pointer; }
 
-/* --- 10. 【新增】 管理員日誌樣式 --- */
-.admin-log-container {
-    max-width: 500px; /* 與 GUI 編輯器同寬 */
-    margin-left: auto;
-    margin-right: auto;
-}
-#admin-log-ui {
-    list-style: none;
-    padding: 10px;
-    margin: 0;
-    width: 100%;
-    height: 120px; /* 固定高度 */
-    overflow-y: auto; /* 產生捲軸 */
-    background: #2d3748; /* 深色背景 */
-    color: #e2e8f0; /* 亮色文字 */
-    border-radius: 6px;
-    text-align: left;
-    font-family: "Consolas", "Monaco", monospace;
+/* --- 10. 管理員日誌樣式 --- */
+.admin-log-container { max-width: 500px; margin-left: auto; margin-right: auto; }
+#admin-log-ui { list-style: none; padding: 10px; margin: 0; width: 100%; height: 120px; overflow-y: auto; background: #2d3748; color: #e2e8f0; border-radius: 6px; text-align: left; font-family: "Consolas", "Monaco", monospace; font-size: 0.9rem; box-sizing: border-box; }
+#admin-log-ui li { padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid #4a5568; }
+#admin-log-ui li:first-child { color: #68d391; font-weight: bold; }
+
+/* --- 11. 【新增】 日誌清除按鈕 --- */
+.admin-log-container .btn-clear-log {
+    width: auto; /* 不佔滿寬度 */
+    min-width: 100px;
+    padding: 5px 12px;
     font-size: 0.9rem;
-    box-sizing: border-box; /* 確保 padding 不會破版 */
+    background-color: #71717a; /* 中性灰色 */
+    margin-top: 10px;
 }
-#admin-log-ui li {
-    padding-bottom: 3px;
-    margin-bottom: 3px;
-    border-bottom: 1px solid #4a5568;
-}
-#admin-log-ui li:first-child {
-    color: #68d391; /* 最新一筆用亮綠色 */
-    font-weight: bold;
+.admin-log-container .btn-clear-log:hover {
+    opacity: 0.9;
 }
