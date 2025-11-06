@@ -2,6 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>後台管理 - 登入</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
@@ -15,11 +16,17 @@ body {
   background: #f0f4f8; 
   margin: 0;
   padding: 20px; 
+  /* 【修改】 讓 padding 在手機上小一點 */
+  padding-top: 30px;
 }
 
 #login-container {
   max-width: 400px;
-  margin: 100px auto;
+  /* 【修改】 增加 width: 90% 以適應小螢幕 */
+  width: 90%;
+  box-sizing: border-box; 
+  
+  margin: 50px auto; /* 減少 margin */
   padding: 30px;
   background: #ffffff;
   border-radius: 10px;
@@ -35,10 +42,9 @@ body {
   font-size: 1.2rem;
   padding: 12px;
   width: 100%;
-  max-width: 100%; /* 覆蓋 admin-panel 的樣式 */
   border-radius: 6px;
   border: 1px solid #ccc;
-  box-sizing: border-box; /* 確保 padding 不會撐爆 */
+  box-sizing: border-box; 
   text-align: left;
 }
 #login-container button {
@@ -58,7 +64,7 @@ body {
 #login-error {
   color: #dc2626;
   margin-top: 15px;
-  height: 1.2rem; /* 佔住空間避免跳動 */
+  height: 1.2rem; 
 }
 
 /* * =================================
@@ -66,11 +72,11 @@ body {
  * =================================
  */
 #admin-panel {
-  display: none; /* 關鍵：預設隱藏 */
-  padding-top: 30px;
+  display: none; 
+  padding-top: 0; /* 登入後 padding 設為 0 */
+  max-width: 600px; /* 限制最大寬度，避免電腦上太寬 */
+  margin: 0 auto;   /* 置中 */
 }
-
-/* ( ... 此處的 CSS 樣式與上一版完全相同 ... ) */
 
 /* 標題 */
 #admin-panel h1 {
@@ -86,10 +92,20 @@ body {
   margin: 20px 0;
 }
 
-/* 容器 (RWD) */
+/* 【修改】 使用 Flexbox 讓排版更靈活 */
 .control-group {
   margin-bottom: 25px;
+  display: flex;
+  flex-direction: column; /* 預設垂直堆疊 */
+  align-items: center; /* 水平置中 */
+  flex-wrap: wrap; /* 允許換行 */
 }
+/* 針對 "上一號/下一號" 的群組，在寬螢幕時並排 */
+.control-group.button-row {
+  flex-direction: row; /* 水平排列 */
+  justify-content: center; /* 水平置中 */
+}
+
 .control-group label {
   display: block;
   font-size: 1.1rem;
@@ -108,9 +124,13 @@ button {
   cursor: pointer;
   color: white;
   min-width: 120px; 
+  width: 90%; /* 讓按鈕在手機上變寬 */
+  max-width: 300px; /* 但不要無限寬 */
 }
-button:hover {
-  opacity: 0.9;
+/* 水平排列的按鈕，寬度設為 auto */
+.control-group.button-row button {
+  width: auto;
+  min-width: 120px;
 }
 
 #prev { background-color: #ef4444; } 
@@ -132,10 +152,7 @@ input, textarea {
   box-sizing: border-box; 
 }
 textarea {
-  resize: vertical;
   height: 80px;
-  white-space: pre-wrap;
-  word-break: break-word; 
   text-align: left;
   padding: 10px;
 }
@@ -148,6 +165,25 @@ textarea {
 }
 #resetAll {
   background-color: #7f1d1d; 
+}
+
+/* ============================================= */
+/* ===       👇👇 Media Query 👇👇         === */
+/* ============================================= */
+@media (max-width: 768px) {
+  body {
+    padding: 20px 10px; /* 手機上 padding 更小 */
+  }
+  #login-container {
+    margin: 30px auto; /* 手機上邊距更小 */
+    padding: 20px;
+  }
+  #admin-panel h1 {
+    font-size: 2.2rem; /* 標題縮小 */
+  }
+  #number {
+    font-size: 4rem; /* 號碼縮小 */
+  }
 }
 </style>
 </head>
@@ -162,7 +198,8 @@ textarea {
 
 <div id="admin-panel">
   <h1>目前號碼：<span id="number">0</span></h1>
-  <div class="control-group">
+
+  <div class="control-group button-row">
     <button id="prev">上一號</button>
     <button id="next">下一號</button>
   </div>
@@ -190,209 +227,181 @@ textarea {
 
 
 <script>
-  // --- 元素抓取 (登入) ---
-  const loginContainer = document.getElementById("login-container");
-  const adminPanel = document.getElementById("admin-panel");
-  const passwordInput = document.getElementById("password-input");
-  const loginButton = document.getElementById("login-button");
-  const loginError = document.getElementById("login-error");
+// --- JavaScript (不需變動) ---
+// (您上一版的完整 JavaScript 貼在此處)
 
-  // --- 元素抓取 (控制台) ---
-  const numberEl = document.getElementById("number");
-  const passedNumbersInputEl = document.getElementById("passedNumbersInput");
+// --- 元素抓取 (登入) ---
+const loginContainer = document.getElementById("login-container");
+const adminPanel = document.getElementById("admin-panel");
+const passwordInput = document.getElementById("password-input");
+const loginButton = document.getElementById("login-button");
+const loginError = document.getElementById("login-error");
 
-  // --- 全域變數 ---
-  let token = ""; // 登入成功後，token 會存在這裡
+// --- 元素抓取 (控制台) ---
+const numberEl = document.getElementById("number");
+const passedNumbersInputEl = document.getElementById("passedNumbersInput");
 
-  // --- 
-  // Socket.io 預設不自動連線
-  // --- 
-  const socket = io({ autoConnect: false });
+// --- 全域變數 ---
+let token = ""; 
 
-  // --- 
-  // 顯示/隱藏 的輔助函式
-  // --- 
-  function showLogin() {
-    loginContainer.style.display = "block";
-    adminPanel.style.display = "none";
-    localStorage.removeItem("adminToken"); // 顯示登入時，清除任何舊的 token
-    document.title = "後台管理 - 登入";
+// --- Socket.io --- 
+const socket = io({ autoConnect: false });
+
+// --- 顯示/隱藏 --- 
+function showLogin() {
+  loginContainer.style.display = "block";
+  adminPanel.style.display = "none";
+  localStorage.removeItem("adminToken"); 
+  document.title = "後台管理 - 登入";
+}
+
+function showPanel() {
+  loginContainer.style.display = "none";
+  adminPanel.style.display = "block";
+  document.title = "後台管理 - 控制台";
+  socket.connect(); 
+}
+
+// --- 驗證 Token --- 
+async function checkToken(tokenToCheck) {
+  if (!tokenToCheck) return false;
+  try {
+    const res = await fetch("/check-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: tokenToCheck })
+    });
+    return res.ok; 
+  } catch (err) {
+    console.error("checkToken 失敗:", err);
+    return false; 
   }
+}
+
+// --- 登入邏輯 --- 
+async function attemptLogin(tokenToCheck) {
+  loginError.textContent = "驗證中...";
+  const isValid = await checkToken(tokenToCheck);
   
-  function showPanel() {
-    loginContainer.style.display = "none";
-    adminPanel.style.display = "block";
-    document.title = "後台管理 - 控制台";
-    
-    // 登入成功後，才手動連接 Socket.io
-    socket.connect(); 
-  }
-
-  // --- 
-  // 驗證 Token 的函式
-  // --- 
-  async function checkToken(tokenToCheck) {
-    if (!tokenToCheck) return false;
-    try {
-      const res = await fetch("/check-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: tokenToCheck })
-      });
-      return res.ok; 
-    } catch (err) {
-      console.error("checkToken 失敗:", err);
-      return false; 
-    }
-  }
-
-  // --- 
-  // 核心登入邏輯
-  // --- 
-  async function attemptLogin(tokenToCheck) {
-    loginError.textContent = "驗證中...";
-    const isValid = await checkToken(tokenToCheck);
-    
-    if (isValid) {
-      token = tokenToCheck; // 設定全域 token
-      // localStorage.setItem("adminToken", token); // <-- 【修改】 移除此行，不再儲存 token
-      showPanel(); // 顯示控制台
-    } else {
-      loginError.textContent = "密碼錯誤";
-      showLogin(); // 顯示登入畫面 (showLogin 已經會清除 localStorage)
-    }
-  }
-  
-  // --- 
-  // 頁面載入時的檢查
-  // --- 
-  document.addEventListener("DOMContentLoaded", () => {
-    // 【修改】移除自動登入檢查，一律顯示登入畫面
+  if (isValid) {
+    token = tokenToCheck; 
+    showPanel(); 
+  } else {
+    loginError.textContent = "密碼錯誤";
     showLogin(); 
-  });
+  }
+}
 
-  // --- 
-  // 登入按鈕事件
-  // --- 
-  loginButton.addEventListener("click", () => {
+// --- 頁面載入 --- 
+document.addEventListener("DOMContentLoaded", () => {
+  showLogin(); 
+});
+
+// --- 登入按鈕事件 --- 
+loginButton.addEventListener("click", () => {
+  attemptLogin(passwordInput.value);
+});
+passwordInput.addEventListener("keyup", (event) => {
+  if (event.key === "Enter") {
     attemptLogin(passwordInput.value);
-  });
-  passwordInput.addEventListener("keyup", (event) => {
-    if (event.key === "Enter") {
-      attemptLogin(passwordInput.value);
-    }
-  });
+  }
+});
 
+// =============================================
+//     控制台邏輯
+// =============================================
 
-  // =============================================
-  //     以下是控制台的邏輯 (只有登入成功才會執行)
-  // =============================================
+// --- Socket 監聽器 ---
+socket.on("connect", () => {
+  console.log("Socket.io 已連接");
+});
+socket.on("update", num => numberEl.textContent = num);
+socket.on("updatePassed", (numbers) => {
+  if (numbers && Array.isArray(numbers)) {
+    passedNumbersInputEl.value = numbers.join(", ");
+  } else {
+    passedNumbersInputEl.value = "";
+  }
+});
 
-  // --- Socket 監聽器 (預先定義好) ---
-  socket.on("connect", () => {
-    console.log("Socket.io 已連接");
-  });
-  socket.on("update", num => numberEl.textContent = num);
-  socket.on("updatePassed", (numbers) => {
-    if (numbers && Array.isArray(numbers)) {
-      passedNumbersInputEl.value = numbers.join(", ");
-    } else {
-      passedNumbersInputEl.value = "";
-    }
-  });
+// --- API 請求函式 --- 
+async function apiRequest(endpoint, body) {
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, token }) 
+    });
 
-  // --- 
-  // 統一的 API 請求函式 (不變)
-  // --- 
-  async function apiRequest(endpoint, body) {
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, token }) // 使用全域 token
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        
-        // 如果 Token 失效，踢回登入畫面
-        if (res.status === 403) {
-          alert("密碼驗證失敗或 Token 已過期，請重新登入。");
-          showLogin(); // 踢回登入
-        } else {
-          alert("發生錯誤：" + (errorData.error || "未知錯誤"));
-        }
-        return false;
+    if (!res.ok) {
+      const errorData = await res.json();
+      if (res.status === 403) {
+        alert("密碼驗證失敗或 Token 已過期，請重新登入。");
+        showLogin(); 
+      } else {
+        alert("發生錯誤：" + (errorData.error || "未知錯誤"));
       }
-      return true;
-
-    } catch (err) {
-      alert("網路連線失敗或伺服器無回應：" + err.message);
       return false;
     }
+    return true;
+
+  } catch (err) {
+    alert("網路連線失敗或伺服器無回應：" + err.message);
+    return false;
   }
+}
 
-  // --- 控制台按鈕功能 (與之前相同) ---
-
-  // 改變號碼
-  async function changeNumber(direction) {
-    await apiRequest("/change-number", { direction });
+// --- 控制台按鈕功能 ---
+async function changeNumber(direction) {
+  await apiRequest("/change-number", { direction });
+}
+async function setNumber() {
+  const num = document.getElementById("manualNumber").value;
+  if (num === "") return;
+  const success = await apiRequest("/set-number", { number: num });
+  if (success) {
+    document.getElementById("manualNumber").value = "";
   }
-
-  // 設定號碼
-  async function setNumber() {
-    const num = document.getElementById("manualNumber").value;
-    if (num === "") return;
-    const success = await apiRequest("/set-number", { number: num });
-    if (success) {
-      document.getElementById("manualNumber").value = "";
-    }
+}
+async function setText() {
+  const text = document.getElementById("customText").value;
+  const success = await apiRequest("/set-text", { text });
+  if (success) {
+    document.getElementById("customText").value = "";
   }
-
-  // 設定提示文字
-  async function setText() {
-    const text = document.getElementById("customText").value;
-    const success = await apiRequest("/set-text", { text });
-    if (success) {
-      document.getElementById("customText").value = "";
-    }
+}
+async function savePassedNumbers() {
+  const text = passedNumbersInputEl.value;
+  const numbersArray = text
+    .split(',')
+    .map(n => n.trim())
+    .filter(n => n.length > 0)
+    .map(n => Number(n));
+  
+  const success = await apiRequest("/set-passed-numbers", { numbers: numbersArray });
+  if (success) {
+    alert("過號列表已儲存。");
   }
-
-  // 儲存過號列表
-  async function savePassedNumbers() {
-    const text = passedNumbersInputEl.value;
-    const numbersArray = text
-      .split(',')
-      .map(n => n.trim())
-      .filter(n => n.length > 0)
-      .map(n => Number(n));
-    
-    const success = await apiRequest("/set-passed-numbers", { numbers: numbersArray });
-    if (success) {
-      alert("過號列表已儲存。");
-    }
+}
+async function resetAll() {
+  if (!confirm("確定要將目前號碼、提示文字、已叫號碼列表全部重置嗎？")) {
+    return;
   }
-
-  // 重置全部
-  async function resetAll() {
-    if (!confirm("確定要將目前號碼、提示文字、已叫號碼列表全部重置嗎？")) {
-      return;
-    }
-    const success = await apiRequest("/reset", {});
-    if (success) {
-      document.getElementById("manualNumber").value = "";
-      document.getElementById("customText").value = "";
-      alert("已全部重置。");
-    }
+  const success = await apiRequest("/reset", {});
+  if (success) {
+    document.getElementById("manualNumber").value = "";
+    document.getElementById("customText").value = "";
+    alert("已全部重置。");
   }
+}
 
-  // --- 綁定按鈕事件 (與之前相同) ---
-  document.getElementById("next").onclick = () => changeNumber("next");
-  document.getElementById("prev").onclick = () => changeNumber("prev");
-  document.getElementById("setNumber").onclick = setNumber;
-  document.getElementById("setText").onclick = setText;
-  document.getElementById("resetAll").onclick = resetAll;
-  document.getElementById("savePassedNumbers").onclick = savePassedNumbers;
+// --- 綁定按鈕事件 ---
+document.getElementById("next").onclick = () => changeNumber("next");
+document.getElementById("prev").onclick = () => changeNumber("prev");
+document.getElementById("setNumber").onclick = setNumber;
+document.getElementById("setText").onclick = setText;
+document.getElementById("resetAll").onclick = resetAll;
+document.getElementById("savePassedNumbers").onclick = savePassedNumbers;
 </script>
 
 </body>
