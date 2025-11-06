@@ -20,6 +20,11 @@
     <div id="admin-panel">
         <h1>目前號碼：<span id="number">0</span></h1>
 
+        <div class="sound-toggle-group">
+            <label for="sound-toggle">啟用前台音效</label>
+            <input type="checkbox" id="sound-toggle">
+        </div>
+
         <div class="control-group button-row">
             <button id="prev" type="button">上一號</button>
             <button id="next" type="button">下一號</button>
@@ -31,7 +36,8 @@
         
         <div class="control-group list-editor">
             <label>編輯精選連結</label>
-            <ul id="featured-list-ui"></ul> <div class="input-group">
+            <ul id="featured-list-ui"></ul>
+            <div class="input-group">
                 <input type="text" id="new-link-text" placeholder="連結文字">
                 <input type="text" id="new-link-url" placeholder="https://... 網址">
                 <button id="add-featured-btn" type="button" class="btn-add">+</button>
@@ -41,7 +47,8 @@
 
         <div class="control-group list-editor">
             <label>手動編輯過號列表</label>
-            <ul id="passed-list-ui"></ul> <div class="input-group">
+            <ul id="passed-list-ui"></ul>
+            <div class="input-group">
                 <input type="number" id="new-passed-number" placeholder="輸入號碼">
                 <button id="add-passed-btn" type="button" class="btn-add">+</button>
             </div>
