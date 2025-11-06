@@ -27,15 +27,22 @@
             <button id="setNumber" type="button">設定號碼</button>
         </div>
         
-        <div class="control-group">
-            <label for="featuredEditorInput">編輯精選連結 (每行一筆)</label>
-            <textarea id="featuredEditorInput" placeholder="格式： 連結文字,https://..."></textarea>
+        <div class="control-group list-editor">
+            <label>編輯精選連結</label>
+            <ul id="featured-list-ui"></ul> <div class="input-group">
+                <input type="text" id="new-link-text" placeholder="連結文字">
+                <input type="text" id="new-link-url" placeholder="https://... 網址">
+                <button id="add-featured-btn" type="button" class="btn-add">+</button>
+            </div>
             <button id="saveFeaturedContents" type="button">儲存精選連結</button>
         </div>
 
-        <div class="control-group">
-            <label for="passedNumbersInput">手動編輯過號列表 (用逗號,分隔)</label>
-            <textarea id="passedNumbersInput" placeholder="例如： 5, 8, 12"></textarea>
+        <div class="control-group list-editor">
+            <label>手動編輯過號列表</label>
+            <ul id="passed-list-ui"></ul> <div class="input-group">
+                <input type="number" id="new-passed-number" placeholder="輸入號碼">
+                <button id="add-passed-btn" type="button" class="btn-add">+</button>
+            </div>
             <button id="savePassedNumbers" type="button">儲存過號列表</button>
         </div>
 
@@ -47,7 +54,8 @@
                 <button id="resetPassed" type="button" class="btn-reset-single">重置過號列表</button>
             </div>
             <button id="resetAll" type="button">💥 重置所有 (全部歸0)</button>
-            </div>
+            <button id="logoutButton" type="button" style="background-color: #555; margin-top: 15px;">登出</button>
+        </div>
     </div>
 
     <script src="/js/admin.js"></script>
