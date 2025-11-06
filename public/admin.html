@@ -30,11 +30,11 @@
         .btn-reset-single:hover { opacity: 0.9; }
         #resetAll { background-color: #7f1d1d; margin-top: 20px; }
         @media (max-width: 768px) { body { padding: 20px 10px; } #login-container { margin: 30px auto; padding: 20px; } #admin-panel h1 { font-size: 2.2rem; } #number { font-size: 4rem; } }
+        
+        /* 按鈕顏色 (已移除 #setLeftText, #setRightText) */
         #prev { background-color: #ef4444; }
         #next { background-color: #10b981; }
         #setNumber { background-color: #2563eb; }
-        #setLeftText { background-color: #f59e0b; }
-        #setRightText { background-color: #f59e0b; }
         #savePassedNumbers { background-color: #0891b2; }
         #saveFeaturedContents { background-color: #8b5cf6; } 
     </style>
@@ -58,15 +58,7 @@
             <input type="number" id="manualNumber" placeholder="輸入號碼" />
             <button id="setNumber" type="button">設定號碼</button>
         </div>
-        <div class="control-group">
-            <textarea id="leftCustomText" placeholder="輸入左側文字，可換行"></textarea>
-            <button id="setLeftText" type="button">設定左側文字</button>
-        </div>
-        <div class="control-group">
-            <textarea id="rightCustomText" placeholder="輸入右側文字，可換行"></textarea>
-            <button id="setRightText" type="button">設定右側文字</button>
-        </div>
-        
+
         <div class="control-group">
             <label for="featuredEditorInput">編輯精選連結 (每行一筆)</label>
             <textarea id="featuredEditorInput" placeholder="格式： 連結文字,https://..."></textarea>
@@ -83,8 +75,6 @@
             <h3>--- 重置選項 ---</h3>
             <div class="control-group button-row">
                 <button id="resetNumber" type="button" class="btn-reset-single">重置號碼 (歸0)</button>
-                <button id="resetLeftText" type="button" class="btn-reset-single">重置左側文字</button>
-                <button id="resetRightText" type="button" class="btn-reset-single">重置右側文字</button>
                 <button id="resetFeaturedContents" type="button" class="btn-reset-single">重置精選連結</button>
                 <button id="resetPassed" type="button" class="btn-reset-single">重置過號列表</button>
             </div>
@@ -101,8 +91,8 @@
         const loginError = document.getElementById("login-error");
         const numberEl = document.getElementById("number");
         const passedNumbersInputEl = document.getElementById("passedNumbersInput");
-        const leftCustomTextInput = document.getElementById("leftCustomText");
-        const rightCustomTextInput = document.getElementById("rightCustomText");
+        // const leftCustomTextInput = document.getElementById("leftCustomText"); // [REMOVED]
+        // const rightCustomTextInput = document.getElementById("rightCustomText"); // [REMOVED]
         const featuredEditorInput = document.getElementById("featuredEditorInput");
 
         // --- 2. 全域變數 ---
@@ -126,13 +116,10 @@
         socket.on("updatePassed", (numbers) => {
             if (numbers && Array.isArray(numbers)) { passedNumbersInputEl.value = numbers.join(", "); } else { passedNumbersInputEl.value = ""; }
         });
-
-        // 【修改】 監聽精選內容列表 (移除 imageUrl)
         socket.on("updateFeaturedContents", (contents) => {
             if (contents && Array.isArray(contents)) {
-                // 將陣列 [{...}] 轉回文字編輯器的格式
                 const textValue = contents.map(item => 
-                    `${item.linkText},${item.linkUrl}` // 移除 imageUrl
+                    `${item.linkText},${item.linkUrl}`
                 ).join("\n");
                 featuredEditorInput.value = textValue;
             } else {
@@ -146,25 +133,23 @@
         // --- 7. 控制台按鈕功能 ---
         async function changeNumber(direction) { await apiRequest("/change-number", { direction }); }
         async function setNumber() { const num = document.getElementById("manualNumber").value; if (num === "") return; const success = await apiRequest("/set-number", { number: num }); if (success) { document.getElementById("manualNumber").value = ""; } }
-        async function setLeftText() { const text = leftCustomTextInput.value; const success = await apiRequest("/set-left-text", { text }); if (success) { leftCustomTextInput.value = ""; } }
-        async function setRightText() { const text = rightCustomTextInput.value; const success = await apiRequest("/set-right-text", { text }); if (success) { rightCustomTextInput.value = ""; } }
+        // async function setLeftText() { ... } // [REMOVED]
+        // async function setRightText() { ... } // [REMOVED]
         async function savePassedNumbers() { const text = passedNumbersInputEl.value; const numbersArray = text.split(",").map((n) => n.trim()).filter((n) => n.length > 0).map((n) => Number(n)); const success = await apiRequest("/set-passed-numbers", { numbers: numbersArray, }); if (success) { alert("過號列表已儲存。"); } }
 
-        // 【修改】 儲存精選內容 (移除 imageUrl)
         async function saveFeaturedContents() {
             const text = featuredEditorInput.value;
             const contentsArray = text
                 .split('\n')
                 .map(line => {
-                    if (line.trim() === '') return null; // 忽略空行
-                    
+                    if (line.trim() === '') return null;
                     const parts = line.split(',');
                     return {
                         linkText: parts[0] ? parts[0].trim() : '',
-                        linkUrl: parts[1] ? parts.slice(1).join(',').trim() : '' // 處理 URL 中可能包含逗號
+                        linkUrl: parts[1] ? parts.slice(1).join(',').trim() : ''
                     };
                 })
-                .filter(Boolean); // 過濾掉空行 (null)
+                .filter(Boolean); 
 
             const success = await apiRequest("/set-featured-contents", { contents: contentsArray });
             if (success) {
@@ -173,8 +158,7 @@
         }
 
         // --- 重置功能 ---
-        async function resetLeftText() { if (!confirm("確定要清空「左側文字」嗎？")) return; const success = await apiRequest("/set-left-text", { text: "" }); if (success) { leftCustomTextInput.value = ""; alert("左側文字已清空。"); } }
-        async function resetRightText() { if (!confirm("確定要清空「右側文字」嗎？")) return; const success = await apiRequest("/set-right-text", { text: "" }); if (success) { rightCustomTextInput.value = ""; alert("右側文字已清空。"); } }
+        // [REMOVED] resetLeftText, resetRightText
         async function resetNumber() { if (!confirm("確定要將「目前號碼」重置為 0 嗎？ (會將現有號碼加入過號列表)")) return; const success = await apiRequest("/set-number", { number: 0 }); if (success) { document.getElementById("manualNumber").value = ""; alert("號碼已重置為 0。"); } }
         async function resetPassed() { if (!confirm("確定要清空「已叫號碼(過號)」列表嗎？")) return; const success = await apiRequest("/set-passed-numbers", { numbers: [] }); if (success) { alert("過號列表已清空。"); } }
         async function resetFeaturedContents() {
@@ -191,8 +175,8 @@
             const success = await apiRequest("/reset", {});
             if (success) {
                 document.getElementById("manualNumber").value = "";
-                leftCustomTextInput.value = "";
-                rightCustomTextInput.value = "";
+                // leftCustomTextInput.value = ""; // [REMOVED]
+                // rightCustomTextInput.value = ""; // [REMOVED]
                 alert("已全部重置。");
             }
         }
@@ -202,12 +186,13 @@
         document.getElementById("prev").onclick = () => changeNumber("prev");
         document.getElementById("setNumber").onclick = setNumber;
         document.getElementById("savePassedNumbers").onclick = savePassedNumbers;
-        document.getElementById("setLeftText").onclick = setLeftText;
-        document.getElementById("setRightText").onclick = setRightText;
+        // document.getElementById("setLeftText").onclick = setLeftText; // [REMOVED]
+        // document.getElementById("setRightText").onclick = setRightText; // [REMOVED]
         document.getElementById("saveFeaturedContents").onclick = saveFeaturedContents;
+        
         document.getElementById("resetNumber").onclick = resetNumber;
-        document.getElementById("resetLeftText").onclick = resetLeftText;
-        document.getElementById("resetRightText").onclick = resetRightText;
+        // document.getElementById("resetLeftText").onclick = resetLeftText; // [REMOVED]
+        // document.getElementById("resetRightText").onclick = resetRightText; // [REMOVED]
         document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents;
         document.getElementById("resetPassed").onclick = resetPassed;
         document.getElementById("resetAll").onclick = resetAll;
