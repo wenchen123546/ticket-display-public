@@ -28,34 +28,44 @@
         #passedList { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
         #passedList li { font-size: clamp(2.5rem, 7vw, 3.5rem); color: #888; background: #e0e0e0; padding: 5px 20px; border-radius: 10px; min-width: 40px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
 
-        /* 精選內容區塊 樣式 */
+        /* 【修改】 精選內容區塊 樣式 */
         #featured-container {
             margin-top: 25px;
             width: 100%;
+            display: flex; /* 改為 flex */
+            flex-direction: column; /* 垂直排列 */
+            align-items: center;
+            gap: 20px; /* 每個項目之間的間距 */
         }
-        #featuredImage {
+        /* 動態產生的精選項目 */
+        .featured-item {
+            display: inline-block;
+            text-decoration: none;
+            color: inherit;
+        }
+        .featured-item img {
             max-width: 90%; 
             width: 400px; 
             height: auto;
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            /* 【修改】 預設隱藏，由 JS 控制顯示 */
-            display: none; 
+            display: block;
+            margin: 0 auto;
         }
-        #featuredLink {
-            display: none; /* 【修改】 預設隱藏，由 JS 控制顯示 */
+        .featured-item span {
+            display: block;
             font-size: clamp(1.4rem, 4vw, 2rem);
             color: #8b5cf6;
             font-weight: bold;
             text-decoration: none;
             margin-top: 10px;
         }
-        #featuredLink:hover {
+        .featured-item:hover span {
             text-decoration: underline;
         }
 
         /* (相關連結區塊 樣式保持不變) */
-        #links-container { margin-top: 25px; width: 100%; }
+        #links-container { margin-top: 25px; width: 100%; display: none; } 
         #links-container h4 { font-size: clamp(1.5rem, 4vw, 2.2rem); color: #333; margin: 0 0 10px 0; border-top: 1px solid #ccc; padding-top: 15px; }
         #linksList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         #linksList li a { font-size: clamp(1.2rem, 3.5vw, 1.8rem); color: #2563eb; text-decoration: none; background: #fff; padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); transition: background-color 0.2s; }
@@ -83,11 +93,11 @@
         <ul id="passedList"></ul>
     </div>
 
-    <div id="featured-container" style="display: none;"> <img id="featuredImage" src="" alt="精選內容" />
-        <a id="featuredLink" href="" target="_blank"></a>
+    <div id="featured-container" style="display: none;">
     </div>
 
-    <div id="links-container" style="display: none;"> <h4>相關連結</h4>
+    <div id="links-container" style="display: none;">
+        <h4>相關連結</h4>
         <ul id="linksList">
             </ul>
     </div>
@@ -102,9 +112,10 @@
         const passedListEl = document.getElementById("passedList");
         const linksListEl = document.getElementById("linksList");
         const linksContainerEl = document.getElementById("links-container");
+
+        // 【修改】 抓取精選內容容器
         const featuredContainerEl = document.getElementById("featured-container");
-        const featuredImageEl = document.getElementById("featuredImage");
-        const featuredLinkEl = document.getElementById("featuredLink");
+        // (移除舊的 featuredImageEl 和 featuredLinkTextEl)
 
         socket.on("update", (num) => { numberEl.textContent = num; });
         socket.on("updateLeftText", (text) => { leftTextEl.innerHTML = text || ""; });
@@ -141,37 +152,52 @@
 
         /*
          * =============================================
-         * 【修復】 精選內容的顯示邏輯
+         * 【修改】 精選內容的顯示邏輯 (改為迴圈)
          * =============================================
          */
-        socket.on("updateFeatured", (content) => {
-            let hasImage = false;
-            let hasLink = false;
+        socket.on("updateFeaturedContents", (contents) => {
+            // 1. 清空舊內容
+            featuredContainerEl.innerHTML = "";
 
-            // 1. 檢查圖片
-            if (content && content.imageUrl) {
-                featuredImageEl.src = content.imageUrl;
-                featuredImageEl.style.display = "block"; // 顯示圖片
-                hasImage = true;
-            } else {
-                featuredImageEl.style.display = "none"; // 隱藏圖片
-            }
+            // 2. 檢查是否有內容
+            if (contents && contents.length > 0) {
+                featuredContainerEl.style.display = "flex"; // 顯示容器
+                
+                // 3. 迴圈建立每個項目
+                contents.forEach(item => {
+                    // 檢查是否為空項目
+                    if (!item.imageUrl && !item.linkText) {
+                        return; // 跳過這個空項目
+                    }
 
-            // 2. 檢查連結
-            if (content && content.linkText && content.linkUrl) {
-                featuredLinkEl.href = content.linkUrl;
-                featuredLinkEl.textContent = content.linkText;
-                featuredLinkEl.style.display = "block"; // 顯示連結
-                hasLink = true;
-            } else {
-                featuredLinkEl.style.display = "none"; // 隱藏連結
-            }
+                    // 建立 <a> 標籤
+                    const a = document.createElement("a");
+                    a.className = "featured-item";
+                    a.target = "_blank";
+                    if (item.linkUrl) {
+                        a.href = item.linkUrl;
+                    }
 
-            // 3. 決定是否顯示整個區塊
-            // (只要有圖片 或 有連結，就顯示)
-            if (hasImage || hasLink) {
-                featuredContainerEl.style.display = "block";
+                    // 建立 <img> 標籤 (如果有圖片)
+                    if (item.imageUrl) {
+                        const img = document.createElement("img");
+                        img.src = item.imageUrl;
+                        img.alt = item.linkText || "精選內容";
+                        a.appendChild(img);
+                    }
+                    
+                    // 建立 <span> 標籤 (如果有文字)
+                    if (item.linkText) {
+                        const span = document.createElement("span");
+                        span.textContent = item.linkText;
+                        a.appendChild(span);
+                    }
+
+                    // 將組合好的 <a> 項目加入容器
+                    featuredContainerEl.appendChild(a);
+                });
             } else {
+                // 4. 沒有內容，隱藏容器
                 featuredContainerEl.style.display = "none";
             }
         });
