@@ -92,26 +92,16 @@ textarea {
     padding: 10px;
 }
 
-/* --- 【修改】 列表編輯器 GUI 樣式 --- */
+/* --- 列表編輯器 GUI 樣式 --- */
 .list-editor {
     border: 1px solid #ccc;
     border-radius: 8px;
     padding: 15px;
     background: #f9f9f9;
     max-width: 500px;
-    
-    /* 【修復】 讓區塊本身水平置中 */
     margin-left: auto;
     margin-right: auto;
-    
-    /* 因為 .control-group (在同一元素上) 
-      設定了 margin-bottom, 我們要保留它 
-    */
     margin-bottom: 25px; 
-
-    /* 因為 .control-group 設了 width: 100%, 
-      我們要確保 box-sizing 正確，padding 才不會使其破版
-    */
     box-sizing: border-box; 
 }
 .list-editor ul {
