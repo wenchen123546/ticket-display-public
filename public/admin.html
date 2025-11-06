@@ -6,230 +6,50 @@
     <title>後台管理 - 登入</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        /* * =================================
-        * 基本樣式 & 登入畫面
-        * =================================
-        */
-        body {
-            font-family: "Microsoft JhengHei", sans-serif;
-            text-align: center;
-            background: #f0f4f8;
-            margin: 0;
-            padding: 20px;
-            /* 【修改】 讓 padding 在手機上小一點 */
-            padding-top: 30px;
-        }
+        /* (CSS 樣式保持不變，為求簡潔此處省略) */
+        /* --- 基礎 & 登入頁 --- */
+        body { font-family: "Microsoft JhengHei", sans-serif; text-align: center; background: #f0f4f8; margin: 0; padding: 20px; padding-top: 30px; }
+        #login-container { max-width: 400px; width: 90%; box-sizing: border-box; margin: 50px auto; padding: 30px; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+        #login-container h1 { font-size: 2.2rem; color: #dc2626; margin-top: 0; margin-bottom: 25px; }
+        #login-container input { font-size: 1.2rem; padding: 12px; width: 100%; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; text-align: left; }
+        #login-container button { font-size: 1.2rem; padding: 12px 20px; margin-top: 20px; border: none; border-radius: 8px; cursor: pointer; color: white; background-color: #2563eb; width: 100%; }
+        #login-container button:hover { opacity: 0.9; }
+        #login-error { color: #dc2626; margin-top: 15px; height: 1.2rem; }
 
-        #login-container {
-            max-width: 400px;
-            /* 【修改】 增加 width: 90% 以適應小螢幕 */
-            width: 90%;
-            box-sizing: border-box;
-            margin: 50px auto; /* 減少 margin */
-            padding: 30px;
-            background: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
+        /* --- 後台控制台 --- */
+        #admin-panel { display: none; padding-top: 0; max-width: 600px; margin: 0 auto; }
+        #admin-panel h1 { font-size: 3rem; color: #dc2626; margin-bottom: 30px; }
+        #number { font-size: 5rem; color: #2563eb; margin: 20px 0; }
+        .control-group { margin-bottom: 25px; display: flex; flex-direction: column; align-items: center; flex-wrap: wrap; }
+        .control-group.button-row { flex-direction: row; justify-content: center; }
+        .control-group label { display: block; font-size: 1.1rem; color: #333; margin-bottom: 8px; font-weight: bold; }
+        button { font-size: 1.2rem; padding: 10px 20px; margin: 10px 5px; border: none; border-radius: 8px; cursor: pointer; color: white; min-width: 120px; width: 90%; max-width: 300px; }
+        .control-group.button-row button { width: auto; min-width: 120px; }
+        
+        /* 【修改】 按鈕顏色 */
+        #prev { background-color: #ef4444; }
+        #next { background-color: #10b981; }
+        #setNumber { background-color: #2563eb; }
+        #setLeftText { background-color: #f59e0b; } /* 修改 ID */
+        #setRightText { background-color: #f59e0b; } /* 新增 */
+        #savePassedNumbers { background-color: #0891b2; }
 
-        #login-container h1 {
-            font-size: 2.2rem;
-            color: #dc2626;
-            margin-top: 0;
-            margin-bottom: 25px;
-        }
+        input, textarea { font-size: 1.2rem; padding: 8px; width: 90%; max-width: 300px; text-align: center; border-radius: 6px; border: 1px solid #ccc; margin-top: 10px; box-sizing: border-box; }
+        textarea { height: 80px; text-align: left; padding: 10px; }
 
-        #login-container input {
-            font-size: 1.2rem;
-            padding: 12px;
-            width: 100%;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            box-sizing: border-box;
-            text-align: left;
-        }
+        /* --- 重置區域 --- */
+        .reset-zone { margin-top: 40px; border-top: 1px solid #ccc; padding-top: 20px; }
+        .reset-zone h3 { color: #555; font-size: 1.2rem; margin-bottom: 10px; font-weight: bold; }
+        .btn-reset-single { background-color: #d97706; font-size: 1rem; padding: 8px 15px; width: auto; }
+        .btn-reset-single:hover { opacity: 0.9; }
+        #resetAll { background-color: #7f1d1d; margin-top: 20px; }
 
-        #login-container button {
-            font-size: 1.2rem;
-            padding: 12px 20px;
-            margin-top: 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            color: white;
-            background-color: #2563eb;
-            width: 100%;
-        }
-
-        #login-container button:hover {
-            opacity: 0.9;
-        }
-
-        #login-error {
-            color: #dc2626;
-            margin-top: 15px;
-            height: 1.2rem;
-        }
-
-        /* * =================================
-        * 後台控制台 (預設隱藏)
-        * =================================
-        */
-        #admin-panel {
-            display: none;
-            padding-top: 0; /* 登入後 padding 設為 0 */
-            max-width: 600px; /* 限制最大寬度，避免電腦上太寬 */
-            margin: 0 auto; /* 置中 */
-        }
-
-        /* 標題 */
-        #admin-panel h1 {
-            font-size: 3rem;
-            color: #dc2626;
-            margin-bottom: 30px;
-        }
-
-        /* 目前號碼顯示 */
-        #number {
-            font-size: 5rem;
-            color: #2563eb;
-            margin: 20px 0;
-        }
-
-        /* 【修改】
-        使用 Flexbox 讓排版更靈活 */
-        .control-group {
-            margin-bottom: 25px;
-            display: flex;
-            flex-direction: column; /* 預設垂直堆疊 */
-            align-items: center; /* 水平置中 */
-            flex-wrap: wrap; /* 允許換行 */
-        }
-
-        /* 針對 "上一號/下一號" 的群組，在寬螢幕時並排 */
-        .control-group.button-row {
-            flex-direction: row; /* 水平排列 */
-            justify-content: center; /* 水平置中 */
-        }
-
-        .control-group label {
-            display: block;
-            font-size: 1.1rem;
-            color: #333;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-
-        /* 按鈕樣式 */
-        button {
-            font-size: 1.2rem;
-            padding: 10px 20px;
-            margin: 10px 5px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            color: white;
-            min-width: 120px;
-            width: 90%; /* 讓按鈕在手機上變寬 */
-            max-width: 300px; /* 但不要無限寬 */
-        }
-
-        /* 水平排列的按鈕，寬度設為 auto */
-        .control-group.button-row button {
-            width: auto;
-            min-width: 120px;
-        }
-
-        #prev {
-            background-color: #ef4444;
-        }
-        #next {
-            background-color: #10b981;
-        }
-        #setNumber {
-            background-color: #2563eb;
-        }
-        #setText {
-            background-color: #f59e0b;
-        }
-        #savePassedNumbers {
-            background-color: #0891b2;
-        }
-
-        /* 輸入框與文字框 */
-        input,
-        textarea {
-            font-size: 1.2rem;
-            padding: 8px;
-            width: 90%;
-            max-width: 300px;
-            text-align: center;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            margin-top: 10px;
-            box-sizing: border-box;
-        }
-
-        textarea {
-            height: 80px;
-            text-align: left;
-            padding: 10px;
-        }
-
-        /* 重置區域 */
-        .reset-zone {
-            margin-top: 40px;
-            border-top: 1px solid #ccc;
-            padding-top: 20px;
-        }
-
-        /* 【新增】重置區標題 */
-        .reset-zone h3 {
-            color: #555;
-            font-size: 1.2rem;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-
-        /* 【新增】單項重置按鈕的樣式 */
-        .btn-reset-single {
-            background-color: #d97706; /* 琥珀色 (警告) */
-            font-size: 1rem; /* 字體稍小 */
-            padding: 8px 15px;
-            width: auto;
-        }
-        .btn-reset-single:hover {
-            opacity: 0.9;
-        }
-
-        /* 【修改】讓「重置所有」按鈕與上方保持距離 */
-        #resetAll {
-            background-color: #7f1d1d;
-            margin-top: 20px; /* 與單項重置按鈕分隔 */
-        }
-
-        /*
-        ============================================= */
-        /* ===        👇👇 Media Query 👇👇         === */
-        /*
-        ============================================= */
+        /* --- RWD --- */
         @media (max-width: 768px) {
-            body {
-                padding: 20px 10px; /* 手機上 padding 更小 */
-            }
-
-            #login-container {
-                margin: 30px auto; /* 手機上邊距更小 */
-                padding: 20px;
-            }
-
-            #admin-panel h1 {
-                font-size: 2.2rem; /* 標題縮小 */
-            }
-
-            #number {
-                font-size: 4rem; /* 號碼縮小 */
-            }
+            body { padding: 20px 10px; }
+            #login-container { margin: 30px auto; padding: 20px; }
+            #admin-panel h1 { font-size: 2.2rem; }
+            #number { font-size: 4rem; }
         }
     </style>
 </head>
@@ -255,8 +75,13 @@
         </div>
 
         <div class="control-group">
-            <textarea id="customText" placeholder="輸入中文文字，可換行"></textarea>
-            <button id="setText">設定文字</button>
+            <textarea id="leftCustomText" placeholder="輸入左側文字，可換行"></textarea>
+            <button id="setLeftText">設定左側文字</button>
+        </div>
+
+        <div class="control-group">
+            <textarea id="rightCustomText" placeholder="輸入右側文字，可換行"></textarea>
+            <button id="setRightText">設定右側文字</button>
         </div>
 
         <div class="control-group">
@@ -269,48 +94,46 @@
             <h3>--- 重置選項 ---</h3>
             <div class="control-group button-row">
                 <button id="resetNumber" class="btn-reset-single">重置號碼 (歸0)</button>
-                <button id="resetText" class="btn-reset-single">重置文字</button>
-                <button id="resetPassed" class="btn-reset-single">重置過號列表</button>
+                <button id="resetLeftText" class="btn-reset-single">重置左側文字</button> <button id="resetRightText" class="btn-reset-single">重置右側文字</button> <button id="resetPassed" class="btn-reset-single">重置過號列表</button>
             </div>
             <button id="resetAll">💥 重置所有 (全部歸0)</button>
         </div>
-
     </div>
 
     <script>
-        // --- 元素抓取 (登入) ---
+        // --- 1. 元素節點 (DOM) ---
         const loginContainer = document.getElementById("login-container");
         const adminPanel = document.getElementById("admin-panel");
         const passwordInput = document.getElementById("password-input");
         const loginButton = document.getElementById("login-button");
         const loginError = document.getElementById("login-error");
-
-        // --- 元素抓取 (控制台) ---
+        
         const numberEl = document.getElementById("number");
         const passedNumbersInputEl = document.getElementById("passedNumbersInput");
+        
+        // 【新增】 抓取新的文字輸入框
+        const leftCustomTextInput = document.getElementById("leftCustomText");
+        const rightCustomTextInput = document.getElementById("rightCustomText");
 
-        // --- 全域變數 ---
+        // --- 2. 全域變數 ---
         let token = "";
 
-        // --- Socket.io ---
+        // --- 3. Socket.io ---
         const socket = io({ autoConnect: false });
 
-        // --- 顯示/隱藏 ---
+        // --- 4. 登入/顯示邏輯 (保持不變) ---
         function showLogin() {
             loginContainer.style.display = "block";
             adminPanel.style.display = "none";
             localStorage.removeItem("adminToken");
             document.title = "後台管理 - 登入";
         }
-
         function showPanel() {
             loginContainer.style.display = "none";
             adminPanel.style.display = "block";
             document.title = "後台管理 - 控制台";
             socket.connect();
         }
-
-        // --- 驗證 Token ---
         async function checkToken(tokenToCheck) {
             if (!tokenToCheck) return false;
             try {
@@ -325,12 +148,9 @@
                 return false;
             }
         }
-
-        // --- 登入邏輯 ---
         async function attemptLogin(tokenToCheck) {
             loginError.textContent = "驗證中...";
             const isValid = await checkToken(tokenToCheck);
-
             if (isValid) {
                 token = tokenToCheck;
                 showPanel();
@@ -339,13 +159,9 @@
                 showLogin();
             }
         }
-
-        // --- 頁面載入 ---
         document.addEventListener("DOMContentLoaded", () => {
             showLogin();
         });
-
-        // --- 登入按鈕事件 ---
         loginButton.addEventListener("click", () => {
             attemptLogin(passwordInput.value);
         });
@@ -355,13 +171,7 @@
             }
         });
 
-        //
-        // =============================================
-        //      控制台邏輯
-        // =============================================
-        //
-
-        // --- Socket 監聽器 ---
+        // --- 5. 控制台 Socket 監聽器 ---
         socket.on("connect", () => {
             console.log("Socket.io 已連接");
         });
@@ -373,16 +183,16 @@
                 passedNumbersInputEl.value = "";
             }
         });
+        // 【移除】 updateText 監聽器
 
-        // --- API 請求函式 ---
+        // --- 6. API 請求函式 (保持不變) ---
         async function apiRequest(endpoint, body) {
             try {
                 const res = await fetch(endpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ...body, token }), // 注入 token
+                    body: JSON.stringify({ ...body, token }),
                 });
-
                 if (!res.ok) {
                     const errorData = await res.json();
                     if (res.status === 403) {
@@ -400,7 +210,7 @@
             }
         }
 
-        // --- 控制台按鈕功能 ---
+        // --- 7. 控制台按鈕功能 ---
 
         async function changeNumber(direction) {
             await apiRequest("/change-number", { direction });
@@ -415,13 +225,25 @@
             }
         }
 
-        async function setText() {
-            const text = document.getElementById("customText").value;
-            const success = await apiRequest("/set-text", { text });
+        // 【新增】 設定左側文字
+        async function setLeftText() {
+            const text = leftCustomTextInput.value;
+            const success = await apiRequest("/set-left-text", { text });
             if (success) {
-                document.getElementById("customText").value = "";
+                leftCustomTextInput.value = "";
             }
         }
+
+        // 【新增】 設定右側文字
+        async function setRightText() {
+            const text = rightCustomTextInput.value;
+            const success = await apiRequest("/set-right-text", { text });
+            if (success) {
+                rightCustomTextInput.value = "";
+            }
+        }
+
+        // 【修改】 移除 setText()
 
         async function savePassedNumbers() {
             const text = passedNumbersInputEl.value;
@@ -430,7 +252,6 @@
                 .map((n) => n.trim())
                 .filter((n) => n.length > 0)
                 .map((n) => Number(n));
-
             const success = await apiRequest("/set-passed-numbers", {
                 numbers: numbersArray,
             });
@@ -439,12 +260,36 @@
             }
         }
 
-        // 【新增】重置號碼 (歸 0)
+        // 【新增】 重置左側文字
+        async function resetLeftText() {
+            if (!confirm("確定要清空「左側文字」嗎？")) {
+                return;
+            }
+            const success = await apiRequest("/set-left-text", { text: "" });
+            if (success) {
+                leftCustomTextInput.value = "";
+                alert("左側文字已清空。");
+            }
+        }
+        
+        // 【新增】 重置右側文字
+        async function resetRightText() {
+            if (!confirm("確定要清空「右側文字」嗎？")) {
+                return;
+            }
+            const success = await apiRequest("/set-right-text", { text: "" });
+            if (success) {
+                rightCustomTextInput.value = "";
+                alert("右側文字已清空。");
+            }
+        }
+        
+        // 【修改】 移除 resetText()
+
         async function resetNumber() {
             if (!confirm("確定要將「目前號碼」重置為 0 嗎？ (會將現有號碼加入過號列表)")) {
                 return;
             }
-            // 重複使用 /set-number API
             const success = await apiRequest("/set-number", { number: 0 });
             if (success) {
                 document.getElementById("manualNumber").value = "";
@@ -452,31 +297,15 @@
             }
         }
 
-        // 【新增】重置文字 (清空)
-        async function resetText() {
-            if (!confirm("確定要清空「提示文字」嗎？")) {
-                return;
-            }
-            // 重複使用 /set-text API
-            const success = await apiRequest("/set-text", { text: "" });
-            if (success) {
-                document.getElementById("customText").value = "";
-                alert("文字已清空。");
-            }
-        }
-
-        // 【新增】重置過號列表 (清空)
         async function resetPassed() {
             if (!confirm("確定要清空「已叫號碼(過號)」列表嗎？")) {
                 return;
             }
-            // 重複使用 /set-passed-numbers API
             const success = await apiRequest("/set-passed-numbers", { numbers: [] });
             if (success) {
                 alert("過號列表已清空。");
             }
         }
-
 
         async function resetAll() {
             if (
@@ -489,21 +318,26 @@
             const success = await apiRequest("/reset", {});
             if (success) {
                 document.getElementById("manualNumber").value = "";
-                document.getElementById("customText").value = "";
+                leftCustomTextInput.value = ""; // 修改
+                rightCustomTextInput.value = ""; // 修改
                 alert("已全部重置。");
             }
         }
 
-        // --- 綁定按鈕事件 ---
+        // --- 8. 綁定按鈕事件 ---
         document.getElementById("next").onclick = () => changeNumber("next");
         document.getElementById("prev").onclick = () => changeNumber("prev");
         document.getElementById("setNumber").onclick = setNumber;
-        document.getElementById("setText").onclick = setText;
         document.getElementById("savePassedNumbers").onclick = savePassedNumbers;
 
-        // 綁定重置按鈕
+        // 【修改】 綁定文字按鈕
+        document.getElementById("setLeftText").onclick = setLeftText;
+        document.getElementById("setRightText").onclick = setRightText;
+
+        // 【修改】 綁定重置按鈕
         document.getElementById("resetNumber").onclick = resetNumber;
-        document.getElementById("resetText").onclick = resetText;
+        document.getElementById("resetLeftText").onclick = resetLeftText; // 修改
+        document.getElementById("resetRightText").onclick = resetRightText; // 新增
         document.getElementById("resetPassed").onclick = resetPassed;
         document.getElementById("resetAll").onclick = resetAll;
 
