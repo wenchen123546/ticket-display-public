@@ -2,7 +2,7 @@
  * ==========================================
  * 伺服器 (index.js)
  * * (使用 Upstash Redis 資料庫)
- * * (已移除 API 速率限制)
+ * * (已移除「自動加入過號」功能)
  * * (包含「最後更新時間」功能)
  * ==========================================
  */
@@ -12,7 +12,6 @@ const express = require("express");
 const http = require("http");
 const socketio = require("socket.io");
 const Redis = require("ioredis");
-// const rateLimit = require('express-rate-limit'); // [REMOVED]
 
 // --- 2. 伺服器實體化 ---
 const app = express();
@@ -55,10 +54,6 @@ const MAX_PASSED_NUMBERS = 5;
 app.use(express.static("public"));
 app.use(express.json());
 
-// [REMOVED] API 速率限制
-// const apiLimiter = rateLimit(...)
-// app.use("/", apiLimiter);
-
 const authMiddleware = (req, res, next) => {
     const { token } = req.body;
     if (token !== ADMIN_TOKEN) {
@@ -69,28 +64,14 @@ const authMiddleware = (req, res, next) => {
 
 // --- 8. 輔助函式 ---
 
+/** 更新時間戳並廣播 */
 async function updateTimestamp() {
     const now = new Date().toISOString();
     await redis.set(KEY_LAST_UPDATED, now);
     io.emit("updateTimestamp", now);
 }
 
-async function addNumberToPassed(num) {
-    try {
-        if (num <= 0) return;
-        const list = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
-        if (list.includes(String(num))) return; 
-
-        await redis.lpush(KEY_PASSED_NUMBERS, num);
-        await redis.ltrim(KEY_PASSED_NUMBERS, 0, MAX_PASSED_NUMBERS - 1);
-        
-        const newList = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
-        io.emit("updatePassed", newList);
-        await updateTimestamp(); 
-    } catch (e) {
-        console.error("addNumberToPassed 失敗:", e);
-    }
-}
+// [REMOVED] addNumberToPassed 函式已被移除
 
 // --- 9. API 路由 (Routes) ---
 
@@ -104,7 +85,7 @@ app.post("/change-number", authMiddleware, async (req, res) => {
         let num = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
 
         if (direction === "next") { 
-            await addNumberToPassed(num); 
+            // await addNumberToPassed(num); // [REMOVED]
             num++; 
         } 
         else if (direction === "prev" && num > 0) { 
@@ -113,7 +94,7 @@ app.post("/change-number", authMiddleware, async (req, res) => {
         
         await redis.set(KEY_CURRENT_NUMBER, num);
         io.emit("update", num); 
-        if(direction === "prev") await updateTimestamp(); 
+        await updateTimestamp(); // 統一在此呼叫
         res.json({ success: true, number: num });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -125,10 +106,11 @@ app.post("/set-number", authMiddleware, async (req, res) => {
         const { number } = req.body;
         const num = Number(number);
         
-        if (num !== 0) {
-            const oldNum = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
-            await addNumberToPassed(oldNum); 
-        }
+        // [REMOVED] 移除自動加入過號
+        // if (num !== 0) {
+        //     const oldNum = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
+        //     await addNumberToPassed(oldNum);
+        // }
 
         await redis.set(KEY_CURRENT_NUMBER, num);
         io.emit("update", num); 
