@@ -46,24 +46,26 @@
         }
 
         #number {
-            font-size: clamp(8rem, 30vw, 12rem); /* 讓號碼超大 */
+            font-size: clamp(8rem, 30vw, 12rem);
             color: #2563eb;
-            margin: 15px 0; /* 【已修改】 上下邊距改為 15px (原為 20px) */
+            /* 【修改】 分開設定上下邊距 */
+            margin-top: 15px; 
+            margin-bottom: 5px; /* 【修改】 大幅縮小下邊距 (原為 15px) */
             font-weight: bold;
         }
-
+        
         #displayText {
             font-size: clamp(2rem, 6vw, 3rem);
             color: #333;
-            margin-top: 0; /* 【已修改】 移除上邊距 (原為 15px) */
-            min-height: 1.2em; /* 用 em 確保高度與字體相關 */
-            white-space: pre-wrap;
-            word-break: break-word;
-            width: 90%; /* 避免文字在手機上太寬 */
+            margin-top: 0; /* (保持 0) */
+            min-height: 1.2em; 
+            white-space: pre-wrap; 
+            word-break: break-word; 
+            width: 90%; 
         }
-
+        
         #passed-container {
-            margin-top: 10px; /* 【已修改】 上邊距改為 25px (原為 30px) */
+            margin-top: 10px; /* 【再次修改】 上邊距改為 10px (原為 15px) */
             width: 100%;
         }
 
