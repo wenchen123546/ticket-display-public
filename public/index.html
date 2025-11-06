@@ -5,10 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>候位號碼顯示</title>
     <script src="/socket.io/socket.io.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
+
+    <audio id="notify-sound" src="/ding.mp3" preload="auto"></audio>
 
     <h1>💉熱血不宜攔！🩸</h1>
     <h2>目前號碼</h2>
@@ -25,7 +30,7 @@
         </div>
 
     <div id="qr-code-container">
-        <img src="/qrcode.png" alt="Scan to view on your phone">
+        <div id="qr-code-placeholder"></div>
         <p>掃描查看進度</p>
     </div>
 
