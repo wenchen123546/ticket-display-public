@@ -200,3 +200,22 @@ textarea {
     #number { font-size: 4rem; }
     .list-editor { padding: 10px; }
 }
+
+/* --- 7. 【新增】 連線狀態提示條 --- */
+#status-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #f44336; /* 紅色 */
+    color: white;
+    padding: 8px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 1000;
+    transform: translateY(-100%); /* 預設隱藏 */
+    transition: transform 0.3s ease;
+}
+#status-bar.visible {
+    transform: translateY(0); /* 顯示 */
+}
