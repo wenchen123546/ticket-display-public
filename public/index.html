@@ -28,19 +28,18 @@
         #passedList { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
         #passedList li { font-size: clamp(2.5rem, 7vw, 3.5rem); color: #888; background: #e0e0e0; padding: 5px 20px; border-radius: 10px; min-width: 40px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
 
-        /* 【修改】 精選連結區塊 樣式 */
+        /* 【修改】 精選連結區塊 樣式 (移除 img 相關) */
         #featured-container {
             margin-top: 25px;
             width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px; /* 每個連結間距 */
+            gap: 10px;
         }
-        /* 動態產生的精選連結 */
         .featured-link {
             font-size: clamp(1.4rem, 4vw, 2rem);
-            color: #8b5cf6; /* 紫色 */
+            color: #8b5cf6;
             font-weight: bold;
             text-decoration: none;
             padding: 8px 15px;
@@ -52,7 +51,7 @@
         .featured-link:hover {
             text-decoration: underline;
             background-color: #f0f4f8;
-            transform: translateY(-2px); /* 新增 hover 效果 */
+            transform: translateY(-2px);
         }
 
         /* (QR Code 樣式 - 如果您有加的話) */
@@ -111,33 +110,31 @@
          * =============================================
          */
         socket.on("updateFeaturedContents", (contents) => {
-            // 1. 清空舊內容
             featuredContainerEl.innerHTML = "";
-
-            // 2. 檢查是否有內容
+            
             if (contents && contents.length > 0) {
-                featuredContainerEl.style.display = "flex"; // 顯示容器
-                
-                // 3. 迴圈建立每個項目
+                let hasVisibleLinks = false;
+
                 contents.forEach(item => {
-                    // 必須同時有文字和 URL
-                    if (item.linkText && item.linkUrl) {
+                    // 只顯示同時有文字和 URL 的項目
+                    if (item && item.linkText && item.linkUrl) {
                         const a = document.createElement("a");
-                        a.className = "featured-link"; // 使用新的 CSS class
+                        a.className = "featured-link";
                         a.target = "_blank";
                         a.href = item.linkUrl;
                         a.textContent = item.linkText;
                         featuredContainerEl.appendChild(a);
+                        hasVisibleLinks = true;
                     }
                 });
 
-                // 如果過濾後一個項目都沒有，也隱藏
-                if (featuredContainerEl.children.length === 0) {
-                     featuredContainerEl.style.display = "none";
+                if (hasVisibleLinks) {
+                    featuredContainerEl.style.display = "flex";
+                } else {
+                    featuredContainerEl.style.display = "none";
                 }
 
             } else {
-                // 4. 沒有內容，隱藏容器
                 featuredContainerEl.style.display = "none";
             }
         });
