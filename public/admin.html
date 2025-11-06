@@ -132,7 +132,7 @@
         #setLeftText { background-color: #f59e0b; }
         #setRightText { background-color: #f59e0b; }
         #savePassedNumbers { background-color: #0891b2; }
-        #saveLinks { background-color: #3b82f6; } /* 儲存連結按鈕顏色 */
+        #saveLinks { background-color: #3b82f6; }
 
         input,
         textarea {
@@ -208,7 +208,7 @@
     <div id="login-container">
         <h1>後台管理登入</h1>
         <input type="password" id="password-input" placeholder="請輸入管理密碼" />
-        <button id="login-button">登入</button>
+        <button id="login-button" type="button">登入</button>
         <p id="login-error"></p>
     </div>
 
@@ -216,47 +216,47 @@
         <h1>目前號碼：<span id="number">0</span></h1>
 
         <div class="control-group button-row">
-            <button id="prev">上一號</button>
-            <button id="next">下一號</button>
+            <button id="prev" type="button">上一號</button>
+            <button id="next" type="button">下一號</button>
         </div>
 
         <div class="control-group">
             <input type="number" id="manualNumber" placeholder="輸入號碼" />
-            <button id="setNumber">設定號碼</button>
+            <button id="setNumber" type="button">設定號碼</button>
         </div>
 
         <div class="control-group">
             <textarea id="leftCustomText" placeholder="輸入左側文字，可換行"></textarea>
-            <button id="setLeftText">設定左側文字</button>
+            <button id="setLeftText" type="button">設定左側文字</button>
         </div>
 
         <div class="control-group">
             <textarea id="rightCustomText" placeholder="輸入右側文字，可換行"></textarea>
-            <button id="setRightText">設定右側文字</button>
+            <button id="setRightText" type="button">設定右側文字</button>
         </div>
 
         <div class="control-group">
             <label for="passedNumbersInput">手動編輯過號列表 (用逗號,分隔)</label>
             <textarea id="passedNumbersInput" placeholder="例如： 5, 8, 12"></textarea>
-            <button id="savePassedNumbers">儲存過號列表</button>
+            <button id="savePassedNumbers" type="button">儲存過號列表</button>
         </div>
 
         <div class="control-group">
             <label for="linksEditorInput">編輯相關連結 (每行一筆)</label>
             <textarea id="linksEditorInput" placeholder="格式： 連結標題,https://..."></textarea>
-            <button id="saveLinks">儲存連結列表</button>
+            <button id="saveLinks" type="button">儲存連結列表</button>
         </div>
 
         <div class="reset-zone">
             <h3>--- 重置選項 ---</h3>
             <div class="control-group button-row">
-                <button id="resetNumber" class="btn-reset-single">重置號碼 (歸0)</button>
-                <button id="resetLeftText" class="btn-reset-single">重置左側文字</button>
-                <button id="resetRightText" class="btn-reset-single">重置右側文字</button>
-                <button id="resetPassed" class="btn-reset-single">重置過號列表</button>
-                <button id="resetLinks" class="btn-reset-single">重置連結列表</button>
+                <button id="resetNumber" type="button" class="btn-reset-single">重置號碼 (歸0)</button>
+                <button id="resetLeftText" type="button" class="btn-reset-single">重置左側文字</button>
+                <button id="resetRightText" type="button" class="btn-reset-single">重置右側文字</button>
+                <button id="resetPassed" type="button" class="btn-reset-single">重置過號列表</button>
+                <button id="resetLinks" type="button" class="btn-reset-single">重置連結列表</button>
             </div>
-            <button id="resetAll">💥 重置所有 (全部歸0)</button>
+            <button id="resetAll" type="button">💥 重置所有 (全部歸0)</button>
         </div>
     </div>
 
