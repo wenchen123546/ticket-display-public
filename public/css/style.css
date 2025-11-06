@@ -38,16 +38,26 @@ h2 {
     font-weight: bold;
 }
 
+/* 號碼更新時的閃爍動畫 */
+@keyframes flash {
+    0%   { transform: scale(1); opacity: 1; }
+    50%  { transform: scale(1.1); opacity: 0.8; color: #dc2626; }
+    100% { transform: scale(1); opacity: 1; }
+}
+#number.updated {
+    animation: flash 0.5s ease;
+}
+
+
 /* 已過號 */
 #passed-container {
-    margin-top: 0; /* 預設與 #number 緊貼 */
+    margin-top: 0; 
     width: 100%;
 }
 #passed-container h3 {
     font-size: clamp(1.8rem, 5vw, 2.5rem);
     color: #666;
     margin: 0 0 15px 0;
-    /* JS 會在有內容時動態加入 margin-top: 25px */
 }
 #passedList {
     list-style: none;
@@ -105,25 +115,36 @@ h2 {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     z-index: 100;
 }
-#qr-code-container img {
-    display: block;
+
+/* 【修改】 讓 placeholder 容器有大小 */
+#qr-code-placeholder {
     width: 120px;
     height: 120px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
+/* 【修改】 讓 QR Code 函式庫產生的 img/canvas 填滿容器 */
+#qr-code-placeholder img,
+#qr-code-placeholder canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 #qr-code-container p {
     margin: 5px 0 0 0;
     font-size: 0.8rem;
     color: #333;
 }
+
+/* 【修改】 RWD for QR Code */
 @media (max-width: 768px) {
     #qr-code-container {
-        width: 80px;
-        height: 80px;
         padding: 5px;
         bottom: 10px;
         right: 10px;
     }
-    #qr-code-container img {
+    #qr-code-placeholder {
         width: 80px;
         height: 80px;
     }
