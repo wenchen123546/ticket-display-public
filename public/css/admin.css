@@ -1,0 +1,188 @@
+/* --- 1. 基礎 & 登入頁 --- */
+body {
+    font-family: "Microsoft JhengHei", sans-serif;
+    text-align: center;
+    background: #f0f4f8;
+    margin: 0;
+    padding: 20px;
+    padding-top: 30px;
+}
+
+#login-container {
+    max-width: 400px;
+    width: 90%;
+    box-sizing: border-box;
+    margin: 50px auto;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#login-container h1 {
+    font-size: 2.2rem;
+    color: #dc2626;
+    margin-top: 0;
+    margin-bottom: 25px;
+}
+
+#login-container input {
+    font-size: 1.2rem;
+    padding: 12px;
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+#login-container button {
+    font-size: 1.2rem;
+    padding: 12px 20px;
+    margin-top: 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: white;
+    background-color: #2563eb;
+    width: 100%;
+}
+
+#login-container button:hover {
+    opacity: 0.9;
+}
+
+#login-error {
+    color: #dc2626;
+    margin-top: 15px;
+    height: 1.2rem;
+}
+
+/* --- 2. 後台控制台 --- */
+#admin-panel {
+    display: none;
+    padding-top: 0;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#admin-panel h1 {
+    font-size: 3rem;
+    color: #dc2626;
+    margin-bottom: 30px;
+}
+
+#number {
+    font-size: 5rem;
+    color: #2563eb;
+    margin: 20px 0;
+}
+
+.control-group {
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.control-group.button-row {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.control-group label {
+    display: block;
+    font-size: 1.1rem;
+    color: #333;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+/* --- 3. 按鈕 & 輸入框 --- */
+button {
+    font-size: 1.2rem;
+    padding: 10px 20px;
+    margin: 10px 5px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: white;
+    min-width: 120px;
+    width: 90%;
+    max-width: 300px;
+}
+
+.control-group.button-row button {
+    width: auto;
+    min-width: 120px;
+}
+
+input,
+textarea {
+    font-size: 1.2rem;
+    padding: 8px;
+    width: 90%;
+    max-width: 300px;
+    text-align: center;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    margin-top: 10px;
+    box-sizing: border-box;
+}
+
+textarea {
+    height: 80px;
+    text-align: left;
+    padding: 10px;
+}
+
+/* --- 4. 顏色主題 --- */
+#prev { background-color: #ef4444; }
+#next { background-color: #10b981; }
+#setNumber { background-color: #2563eb; }
+#savePassedNumbers { background-color: #0891b2; }
+#saveFeaturedContents { background-color: #8b5cf6; } 
+
+/* --- 5. 重置區域 --- */
+.reset-zone {
+    margin-top: 40px;
+    border-top: 1px solid #ccc;
+    padding-top: 20px;
+}
+.reset-zone h3 {
+    color: #555;
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+.btn-reset-single {
+    background-color: #d97706;
+    font-size: 1rem;
+    padding: 8px 15px;
+    width: auto;
+}
+.btn-reset-single:hover {
+    opacity: 0.9;
+}
+#resetAll {
+    background-color: #7f1d1d;
+    margin-top: 20px;
+}
+
+/* --- 6. RWD (響應式設計) --- */
+@media (max-width: 768px) {
+    body {
+        padding: 20px 10px;
+    }
+    #login-container {
+        margin: 30px auto;
+        padding: 20px;
+    }
+    #admin-panel h1 {
+        font-size: 2.2rem;
+    }
+    #number {
+        font-size: 4rem;
+    }
+}
