@@ -2,8 +2,7 @@
  * ==========================================
  * 伺服器 (index.js)
  * * (使用 Upstash Redis 資料庫)
- * * (已移除「自動加入過號」功能)
- * * (包含「最後更新時間」功能)
+ * * (已加入「音效開關」功能)
  * ==========================================
  */
 
@@ -47,6 +46,7 @@ const KEY_CURRENT_NUMBER = 'callsys:number';
 const KEY_PASSED_NUMBERS = 'callsys:passed';
 const KEY_FEATURED_CONTENTS = 'callsys:featured';
 const KEY_LAST_UPDATED = 'callsys:updated'; 
+const KEY_SOUND_ENABLED = 'callsys:soundEnabled'; // 【新增】 音效狀態
 
 const MAX_PASSED_NUMBERS = 5;
 
@@ -64,20 +64,17 @@ const authMiddleware = (req, res, next) => {
 
 // --- 8. 輔助函式 ---
 
-/** 更新時間戳並廣播 */
 async function updateTimestamp() {
     const now = new Date().toISOString();
     await redis.set(KEY_LAST_UPDATED, now);
     io.emit("updateTimestamp", now);
 }
 
-// [REMOVED] addNumberToPassed 函式已被移除
+// (addNumberToPassed 函式保持不變 - 已移除自動添加)
 
 // --- 9. API 路由 (Routes) ---
 
-app.post("/check-token", authMiddleware, (req, res) => {
-    res.json({ success: true });
-});
+app.post("/check-token", authMiddleware, (req, res) => { res.json({ success: true }); });
 
 app.post("/change-number", authMiddleware, async (req, res) => {
     try {
@@ -85,7 +82,6 @@ app.post("/change-number", authMiddleware, async (req, res) => {
         let num = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
 
         if (direction === "next") { 
-            // await addNumberToPassed(num); // [REMOVED]
             num++; 
         } 
         else if (direction === "prev" && num > 0) { 
@@ -94,7 +90,7 @@ app.post("/change-number", authMiddleware, async (req, res) => {
         
         await redis.set(KEY_CURRENT_NUMBER, num);
         io.emit("update", num); 
-        await updateTimestamp(); // 統一在此呼叫
+        await updateTimestamp(); 
         res.json({ success: true, number: num });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -105,13 +101,6 @@ app.post("/set-number", authMiddleware, async (req, res) => {
     try {
         const { number } = req.body;
         const num = Number(number);
-        
-        // [REMOVED] 移除自動加入過號
-        // if (num !== 0) {
-        //     const oldNum = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
-        //     await addNumberToPassed(oldNum);
-        // }
-
         await redis.set(KEY_CURRENT_NUMBER, num);
         io.emit("update", num); 
         await updateTimestamp(); 
@@ -171,16 +160,33 @@ app.post("/set-featured-contents", authMiddleware, async (req, res) => {
     }
 });
 
+// 【新增】 API：設定音效開關
+app.post("/set-sound-enabled", authMiddleware, async (req, res) => {
+    try {
+        const { enabled } = req.body; // 預期收到布林值 true/false
+        const valueToSet = enabled ? "1" : "0";
+        await redis.set(KEY_SOUND_ENABLED, valueToSet);
+        
+        io.emit("updateSoundSetting", enabled); // 廣播布林值
+        await updateTimestamp(); // 這也是一次更新
+        res.json({ success: true, isEnabled: enabled });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 
 app.post("/reset", authMiddleware, async (req, res) => {
     try {
         await redis.set(KEY_CURRENT_NUMBER, 0);
         await redis.del(KEY_PASSED_NUMBERS);
         await redis.del(KEY_FEATURED_CONTENTS);
+        await redis.set(KEY_SOUND_ENABLED, "1"); // 【新增】 重置時預設為開啟
         
         io.emit("update", 0);
         io.emit("updatePassed", []);
         io.emit("updateFeaturedContents", []);
+        io.emit("updateSoundSetting", true); // 【新增】 廣播重置
         
         await updateTimestamp(); 
         
@@ -198,11 +204,18 @@ io.on("connection", async (socket) => {
         const featuredContentsJSON = await redis.get(KEY_FEATURED_CONTENTS);
         const featuredContents = featuredContentsJSON ? JSON.parse(featuredContentsJSON) : [];
         const lastUpdated = await redis.get(KEY_LAST_UPDATED) || new Date().toISOString(); 
+        
+        // 【新增】 讀取音效設定，預設為 "1" (開啟)
+        const soundEnabledRaw = await redis.get(KEY_SOUND_ENABLED);
+        const isSoundEnabled = soundEnabledRaw === null ? "1" : soundEnabledRaw;
 
+        // [發送] 將資料一次性發送給「剛連線的」客戶端
         socket.emit("update", currentNumber);
         socket.emit("updatePassed", passedNumbers);
         socket.emit("updateFeaturedContents", featuredContents);
         socket.emit("updateTimestamp", lastUpdated); 
+        socket.emit("updateSoundSetting", isSoundEnabled === "1"); // 【新增】
+
     } catch (e) {
         console.error("Socket 連線處理失敗:", e);
     }
