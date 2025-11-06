@@ -272,3 +272,25 @@ addFeaturedBtn.onclick = () => {
         alert("「連結文字」和「網址」都必須填寫。");
     }
 };
+
+// --- 10. 【新增】 綁定 Enter 鍵 ---
+
+// 綁定「新增過號」的 Enter 鍵
+newPassedNumberInput.addEventListener("keyup", (event) => {
+    if (event.key === "Enter") {
+        addPassedBtn.click(); // 觸發「+」按鈕的點擊
+    }
+});
+
+// 綁定「新增連結」的 Enter 鍵
+newLinkTextInput.addEventListener("keyup", (event) => {
+    if (event.key === "Enter") {
+        // 在第一個輸入框按 Enter，自動跳到下一個
+        newLinkUrlInput.focus();
+    }
+});
+newLinkUrlInput.addEventListener("keyup", (event) => {
+    if (event.key === "Enter") {
+        addFeaturedBtn.click(); // 在第二個輸入框按 Enter，觸發「+」
+    }
+});
