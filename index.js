@@ -1,8 +1,7 @@
 /*
  * ==========================================
  * 伺服器 (index.js)
- * * (無 db.json，純記憶體版本)
- * 警告：伺服器重啟後所有資料將會重置。
+ * (無 db.json，純記憶體版本)
  * ==========================================
  */
 
@@ -10,7 +9,6 @@
 const express = require("express");
 const http = require("http");
 const socketio = require("socket.io");
-// (移除了 fs 和 path)
 
 const app = express();
 const server = http.createServer(app);
@@ -20,15 +18,11 @@ const io = socketio(server);
 const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
-// 關鍵安全性檢查：
 if (!ADMIN_TOKEN) {
     console.error("❌ 錯誤： ADMIN_TOKEN 環境變數未設定！");
     console.log("👉 請使用 'ADMIN_TOKEN=your_secret_password node index.js' 啟動");
     process.exit(1);
 }
-
-// --- 3. 狀態持久化 (Persistence) ---
-// (移除了 saveState, loadState, DB_PATH, mountPath 相關邏輯)
 console.log("ℹ️ 系統正在以「純記憶體」模式運行。伺服器重啟將會重置所有資料。");
 
 // --- 4. 伺服器全域狀態 (Global State) ---
@@ -37,10 +31,9 @@ let leftText = "";
 let rightText = "";
 let passedNumbers = [];
 let linksList = [];
-let featuredContent = { imageUrl: '', linkText: '', linkUrl: '' };
+// 【修改】 從單一物件變為陣列
+let featuredContents = []; 
 const MAX_PASSED_NUMBERS = 5;
-
-// (移除了 loadState() 呼叫)
 
 // --- 5. Express 中介軟體 (Middleware) ---
 app.use(express.static("public"));
@@ -66,87 +59,82 @@ function addNumberToPassed(num) {
 }
 
 // --- 7. API 路由 (Routes) ---
-// (所有 API 路由都移除了 'saveState()' 呼叫)
 
-app.post("/check-token", authMiddleware, (req, res) => {
-    res.json({ success: true });
-});
-
+// (check-token, change-number, set-number, set-left-text, set-right-text, set-passed-numbers, set-links 保持不變)
+app.post("/check-token", authMiddleware, (req, res) => { res.json({ success: true }); });
 app.post("/change-number", authMiddleware, (req, res) => {
     const { direction } = req.body;
     if (direction === "next") { addNumberToPassed(currentNumber); currentNumber++; } 
     else if (direction === "prev" && currentNumber > 0) { currentNumber--; }
-    io.emit("update", currentNumber);
-    // saveState(); // 移除
-    res.json({ success: true, number: currentNumber });
+    io.emit("update", currentNumber); res.json({ success: true, number: currentNumber });
 });
-
 app.post("/set-number", authMiddleware, (req, res) => {
     const { number } = req.body;
     addNumberToPassed(currentNumber); currentNumber = Number(number);
-    io.emit("update", currentNumber);
-    // saveState(); // 移除
-    res.json({ success: true, number: currentNumber });
+    io.emit("update", currentNumber); res.json({ success: true, number: currentNumber });
 });
-
 app.post("/set-left-text", authMiddleware, (req, res) => {
     const { text } = req.body; leftText = text;
-    io.emit("updateLeftText", leftText);
-    // saveState(); // 移除
-    res.json({ success: true, text: leftText });
+    io.emit("updateLeftText", leftText); res.json({ success: true, text: leftText });
 });
-
 app.post("/set-right-text", authMiddleware, (req, res) => {
     const { text } = req.body; rightText = text;
-    io.emit("updateRightText", rightText);
-    // saveState(); // 移除
-    res.json({ success: true, text: rightText });
+    io.emit("updateRightText", rightText); res.json({ success: true, text: rightText });
 });
-
 app.post("/set-passed-numbers", authMiddleware, (req, res) => {
     const { numbers } = req.body;
     if (!Array.isArray(numbers)) { return res.status(400).json({ error: "Input must be an array." }); }
     const sanitizedNumbers = numbers.map(n => Number(n)).filter(n => !isNaN(n) && n > 0 && Number.isInteger(n));
     passedNumbers = sanitizedNumbers;
-    io.emit("updatePassed", passedNumbers);
-    // saveState(); // 移除
-    res.json({ success: true, numbers: passedNumbers });
+    io.emit("updatePassed", passedNumbers); res.json({ success: true, numbers: passedNumbers });
 });
-
 app.post("/set-links", authMiddleware, (req, res) => {
     const { links } = req.body;
     if (!Array.isArray(links)) { return res.status(400).json({ error: "Input must be an array." }); }
     const sanitizedLinks = links.filter(l => l && typeof l.title === 'string' && typeof l.url === 'string');
     linksList = sanitizedLinks;
-    io.emit("updateLinks", linksList);
-    // saveState(); // 移除
-    res.json({ success: true, links: linksList });
+    io.emit("updateLinks", linksList); res.json({ success: true, links: linksList });
 });
 
-app.post("/set-featured-content", authMiddleware, (req, res) => {
-    const { imageUrl, linkText, linkUrl } = req.body;
-    featuredContent = { imageUrl: imageUrl || '', linkText: linkText || '', linkUrl: linkUrl || '' };
-    io.emit("updateFeatured", featuredContent);
-    // saveState(); // 移除
-    res.json({ success: true, content: featuredContent });
+// 【修改】 API 更新為 /set-featured-contents
+app.post("/set-featured-contents", authMiddleware, (req, res) => {
+    const { contents } = req.body; // 預期收到一個 'contents' 陣列
+    
+    if (!Array.isArray(contents)) {
+        return res.status(400).json({ error: "Input must be an array." });
+    }
+
+    // 驗證陣列中的物件
+    const sanitizedContents = contents.filter(item => 
+        item && (item.imageUrl || item.linkText) // 至少要有圖片或文字
+    ).map(item => ({ // 確保資料乾淨
+        imageUrl: item.imageUrl || '',
+        linkText: item.linkText || '',
+        linkUrl: item.linkUrl || ''
+    }));
+
+    featuredContents = sanitizedContents;
+    io.emit("updateFeaturedContents", featuredContents); // 【修改】 廣播新事件
+    res.json({ success: true, contents: featuredContents });
 });
 
+
+// 【修改】 重置 API
 app.post("/reset", authMiddleware, (req, res) => {
     currentNumber = 0;
     leftText = "";
     rightText = "";
     passedNumbers = [];
     linksList = [];
-    featuredContent = { imageUrl: '', linkText: '', linkUrl: '' };
+    featuredContents = []; // 【修改】 重置為空陣列
     
     io.emit("update", currentNumber);
     io.emit("updateLeftText", leftText);
     io.emit("updateRightText", rightText);
     io.emit("updatePassed", passedNumbers);
     io.emit("updateLinks", linksList);
-    io.emit("updateFeatured", featuredContent);
+    io.emit("updateFeaturedContents", featuredContents); // 【修改】 廣播新事件
     
-    // saveState(); // 移除
     res.json({ success: true, message: "已重置所有內容" });
 });
 
@@ -157,7 +145,7 @@ io.on("connection", (socket) => {
     socket.emit("updateRightText", rightText);
     socket.emit("updatePassed", passedNumbers);
     socket.emit("updateLinks", linksList);
-    socket.emit("updateFeatured", featuredContent);
+    socket.emit("updateFeaturedContents", featuredContents); // 【修改】 廣播新事件
 });
 
 // --- 9. 啟動伺服器 ---
