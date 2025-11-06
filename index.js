@@ -2,7 +2,7 @@
  * ==========================================
  * 伺服器 (index.js)
  * * (無 db.json，純記憶體版本)
- * * (已完全移除精選內容的圖片功能)
+ * * (已移除 左右側文字 功能)
  * ==========================================
  */
 
@@ -28,11 +28,10 @@ console.log("ℹ️ 系統正在以「純記憶體」模式運行。伺服器重
 
 // --- 4. 伺服器全域狀態 (Global State) ---
 let currentNumber = 0;
-let leftText = "";
-let rightText = "";
+// let leftText = ""; // [REMOVED]
+// let rightText = ""; // [REMOVED]
 let passedNumbers = [];
-// 【修改】 精選內容現在只包含文字和網址
-let featuredContents = []; // 格式: [{ linkText: '', linkUrl: '' }]
+let featuredContents = []; 
 const MAX_PASSED_NUMBERS = 5;
 
 // --- 5. Express 中介軟體 (Middleware) ---
@@ -60,27 +59,24 @@ function addNumberToPassed(num) {
 
 // --- 7. API 路由 (Routes) ---
 
-// (check-token, change-number, set-number, set-left-text, set-right-text, set-passed-numbers 保持不變)
 app.post("/check-token", authMiddleware, (req, res) => { res.json({ success: true }); });
+
 app.post("/change-number", authMiddleware, (req, res) => {
     const { direction } = req.body;
     if (direction === "next") { addNumberToPassed(currentNumber); currentNumber++; } 
     else if (direction === "prev" && currentNumber > 0) { currentNumber--; }
     io.emit("update", currentNumber); res.json({ success: true, number: currentNumber });
 });
+
 app.post("/set-number", authMiddleware, (req, res) => {
     const { number } = req.body;
     addNumberToPassed(currentNumber); currentNumber = Number(number);
     io.emit("update", currentNumber); res.json({ success: true, number: currentNumber });
 });
-app.post("/set-left-text", authMiddleware, (req, res) => {
-    const { text } = req.body; leftText = text;
-    io.emit("updateLeftText", leftText); res.json({ success: true, text: leftText });
-});
-app.post("/set-right-text", authMiddleware, (req, res) => {
-    const { text } = req.body; rightText = text;
-    io.emit("updateRightText", rightText); res.json({ success: true, text: rightText });
-});
+
+// [REMOVED] /set-left-text
+// [REMOVED] /set-right-text
+
 app.post("/set-passed-numbers", authMiddleware, (req, res) => {
     const { numbers } = req.body;
     if (!Array.isArray(numbers)) { return res.status(400).json({ error: "Input must be an array." }); }
@@ -90,22 +86,17 @@ app.post("/set-passed-numbers", authMiddleware, (req, res) => {
 });
 
 
-// 【修改】 API 驗證邏輯 (移除 imageUrl)
 app.post("/set-featured-contents", authMiddleware, (req, res) => {
     const { contents } = req.body; 
-    
     if (!Array.isArray(contents)) {
         return res.status(400).json({ error: "Input must be an array." });
     }
-
-    // 驗證陣列中的物件 (只保留 linkText 和 linkUrl)
     const sanitizedContents = contents
-        .filter(item => item && typeof item === 'object') // 確保是物件
+        .filter(item => item && typeof item === 'object') 
         .map(item => ({ 
-            linkText: item.linkText || '', // 預設為空字串
-            linkUrl: item.linkUrl || ''  // 預設為空字串
+            linkText: item.linkText || '', 
+            linkUrl: item.linkUrl || ''
         }));
-
     featuredContents = sanitizedContents;
     io.emit("updateFeaturedContents", featuredContents); 
     res.json({ success: true, contents: featuredContents });
@@ -114,14 +105,14 @@ app.post("/set-featured-contents", authMiddleware, (req, res) => {
 
 app.post("/reset", authMiddleware, (req, res) => {
     currentNumber = 0;
-    leftText = "";
-    rightText = "";
+    // leftText = ""; // [REMOVED]
+    // rightText = ""; // [REMOVED]
     passedNumbers = [];
     featuredContents = [];
     
     io.emit("update", currentNumber);
-    io.emit("updateLeftText", leftText);
-    io.emit("updateRightText", rightText);
+    // io.emit("updateLeftText", leftText); // [REMOVED]
+    // io.emit("updateRightText", rightText); // [REMOVED]
     io.emit("updatePassed", passedNumbers);
     io.emit("updateFeaturedContents", featuredContents);
     
@@ -131,8 +122,8 @@ app.post("/reset", authMiddleware, (req, res) => {
 // --- 8. Socket.io 連線處理 ---
 io.on("connection", (socket) => {
     socket.emit("update", currentNumber);
-    socket.emit("updateLeftText", leftText);
-    socket.emit("updateRightText", rightText);
+    // socket.emit("updateLeftText", leftText); // [REMOVED]
+    // socket.emit("updateRightText", rightText); // [REMOVED]
     socket.emit("updatePassed", passedNumbers);
     socket.emit("updateFeaturedContents", featuredContents);
 });
