@@ -33,22 +33,16 @@ if (!ADMIN_TOKEN) {
 
 // --- 3. 狀態持久化 (Persistence) ---
 
-/**
- * 將目前記憶體中的狀態寫入 db.json 檔案。
- */
 function saveState() {
     try {
         // 【修改】 更新儲存的狀態
-        const state = { currentNumber, leftText, rightText, passedNumbers };
+        const state = { currentNumber, leftText, rightText, passedNumbers, linksList }; // 新增 linksList
         fs.writeFileSync(DB_PATH, JSON.stringify(state, null, 2));
     } catch (err) {
         console.error("❌ 儲存狀態失敗:", err);
     }
 }
 
-/**
- * 在伺服器啟動時，從 db.json 讀取先前儲存的狀態。
- */
 function loadState() {
     try {
         if (fs.existsSync(DB_PATH)) {
@@ -57,11 +51,11 @@ function loadState() {
             
             // 【修改】 回填狀態
             currentNumber = state.currentNumber || 0;
-            leftText = state.leftText || "";         // 新增
-            rightText = state.rightText || "";       // 新增
+            leftText = state.leftText || "";
+            rightText = state.rightText || "";
             passedNumbers = state.passedNumbers || [];
+            linksList = state.linksList || []; // 新增
             console.log("✅ 狀態已從 db.json 載入。");
-            // 移除 'currentText'
         }
     } catch (err) {
         console.error("❌ 載入狀態失敗:", err);
@@ -70,13 +64,13 @@ function loadState() {
 
 // --- 4. 伺服器全域狀態 (Global State) ---
 let currentNumber = 0;
-let leftText = ""; // 【修改】 新增
-let rightText = ""; // 【修改】 新增
+let leftText = "";
+let rightText = "";
 let passedNumbers = [];
+let linksList = []; // 【新增】 連結列表狀態
 const MAX_PASSED_NUMBERS = 5;
 
-// 啟動時立即載入狀態
-loadState();
+loadState(); // 啟動時載入狀態
 
 // --- 5. Express 中介軟體 (Middleware) ---
 app.use(express.static("public"));
@@ -103,10 +97,10 @@ function addNumberToPassed(num) {
 
 // --- 7. API 路由 (Routes) ---
 
+// (check-token, change-number, set-number, set-left-text, set-right-text 保持不變)
 app.post("/check-token", authMiddleware, (req, res) => {
     res.json({ success: true, message: "Token is valid" });
 });
-
 app.post("/change-number", authMiddleware, (req, res) => {
     const { direction } = req.body;
     if (direction === "next") {
@@ -119,7 +113,6 @@ app.post("/change-number", authMiddleware, (req, res) => {
     saveState();
     res.json({ success: true, number: currentNumber });
 });
-
 app.post("/set-number", authMiddleware, (req, res) => {
     const { number } = req.body;
     addNumberToPassed(currentNumber);
@@ -128,28 +121,22 @@ app.post("/set-number", authMiddleware, (req, res) => {
     saveState();
     res.json({ success: true, number: currentNumber });
 });
-
-// 【修改】 移除 /set-text API
-
-// 【新增】 設定「左側」文字 API
 app.post("/set-left-text", authMiddleware, (req, res) => {
     const { text } = req.body;
     leftText = text;
-    io.emit("updateLeftText", leftText); // 廣播新事件
+    io.emit("updateLeftText", leftText);
     saveState();
     res.json({ success: true, text: leftText });
 });
-
-// 【新增】 設定「右側」文字 API
 app.post("/set-right-text", authMiddleware, (req, res) => {
     const { text } = req.body;
     rightText = text;
-    io.emit("updateRightText", rightText); // 廣播新事件
+    io.emit("updateRightText", rightText);
     saveState();
     res.json({ success: true, text: rightText });
 });
 
-
+// (set-passed-numbers 保持不變)
 app.post("/set-passed-numbers", authMiddleware, (req, res) => {
     const { numbers } = req.body;
     if (!Array.isArray(numbers)) {
@@ -164,36 +151,54 @@ app.post("/set-passed-numbers", authMiddleware, (req, res) => {
     res.json({ success: true, numbers: passedNumbers });
 });
 
-/*
- * POST /reset
- * (受 authMiddleware 保護)
- * * 將所有狀態重置為初始值。
- */
+// 【新增】 設定「連結列表」 API
+app.post("/set-links", authMiddleware, (req, res) => {
+    const { links } = req.body;
+    
+    // 伺服器端驗證，確保 links 是
+    // 一個 {title: string, url: string} 的陣列
+    if (!Array.isArray(links)) {
+        return res.status(400).json({ error: "Input must be an array." });
+    }
+    
+    const sanitizedLinks = links.filter(l => 
+        l && typeof l.title === 'string' && typeof l.url === 'string'
+    );
+
+    linksList = sanitizedLinks;
+    io.emit("updateLinks", linksList); // 廣播新連結列表
+    saveState();
+    res.json({ success: true, links: linksList });
+});
+
+
+// 【修改】 重置 API
 app.post("/reset", authMiddleware, (req, res) => {
     currentNumber = 0;
-    leftText = ""; // 【修改】
-    rightText = ""; // 【修改】
+    leftText = "";
+    rightText = "";
     passedNumbers = [];
+    linksList = []; // 新增
     
     // 廣播所有更新
     io.emit("update", currentNumber);
-    io.emit("updateLeftText", leftText); // 【修改】
-    io.emit("updateRightText", rightText); // 【修改】
+    io.emit("updateLeftText", leftText);
+    io.emit("updateRightText", rightText);
     io.emit("updatePassed", passedNumbers);
+    io.emit("updateLinks", linksList); // 新增
     
     saveState();
     res.json({ success: true, message: "已重置所有內容" });
 });
 
 // --- 8. Socket.io 連線處理 ---
-
 io.on("connection", (socket) => {
     // 【修改】 傳送所有狀態
     socket.emit("update", currentNumber);
-    socket.emit("updateLeftText", leftText);   // 新增
-    socket.emit("updateRightText", rightText); // 新增
+    socket.emit("updateLeftText", leftText);
+    socket.emit("updateRightText", rightText);
     socket.emit("updatePassed", passedNumbers);
-    // 移除 updateText
+    socket.emit("updateLinks", linksList); // 新增
 });
 
 // --- 9. 啟動伺服器 ---
