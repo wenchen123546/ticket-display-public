@@ -10,23 +10,20 @@ const featuredEditorInput = document.getElementById("featuredEditorInput");
 
 // --- 2. 全域變數 ---
 let token = "";
-// const TOKEN_KEY = "adminToken"; // [REMOVED]
+const TOKEN_KEY = "adminToken"; 
 
 // --- 3. Socket.io ---
 const socket = io({ autoConnect: false });
 
 // --- 4. 登入/顯示邏輯 ---
-
-/** 顯示登入畫面 (同時也是登出函式) */
 function showLogin() {
     loginContainer.style.display = "block";
     adminPanel.style.display = "none";
-    // localStorage.removeItem(TOKEN_KEY); // [REMOVED]
+    localStorage.removeItem(TOKEN_KEY);
     document.title = "後台管理 - 登入";
     socket.disconnect(); 
 }
 
-/** 顯示後台控制台 */
 function showPanel() {
     loginContainer.style.display = "none";
     adminPanel.style.display = "block";
@@ -34,7 +31,6 @@ function showPanel() {
     socket.connect(); 
 }
 
-/** [API] 檢查 Token 是否有效 */
 async function checkToken(tokenToCheck) {
     if (!tokenToCheck) return false;
     try {
@@ -50,13 +46,12 @@ async function checkToken(tokenToCheck) {
     }
 }
 
-/** 嘗試登入 */
 async function attemptLogin(tokenToCheck) {
     loginError.textContent = "驗證中...";
     const isValid = await checkToken(tokenToCheck);
     if (isValid) {
         token = tokenToCheck;
-        // localStorage.setItem(TOKEN_KEY, tokenToCheck); // [REMOVED]
+        localStorage.setItem(TOKEN_KEY, tokenToCheck);
         showPanel(); 
     } else {
         loginError.textContent = "密碼錯誤";
@@ -64,17 +59,18 @@ async function attemptLogin(tokenToCheck) {
     }
 }
 
-/** 【修改】 頁面載入完成時的入口 (強制顯示登入) */
-document.addEventListener("DOMContentLoaded", () => {
-    // 移除自動登入邏輯，一律顯示登入畫面
-    showLogin();
+document.addEventListener("DOMContentLoaded", async () => {
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+    if (storedToken) {
+        await attemptLogin(storedToken);
+    } else {
+        showLogin();
+    }
 });
 
-// 綁定登入按鈕點擊事件
 loginButton.addEventListener("click", () => {
     attemptLogin(passwordInput.value);
 });
-// 綁定密碼框 Enter 鍵
 passwordInput.addEventListener("keyup", (event) => {
     if (event.key === "Enter") {
         attemptLogin(passwordInput.value);
@@ -184,7 +180,8 @@ async function saveFeaturedContents() {
 // --- 重置功能 ---
 
 async function resetNumber() {
-    if (!confirm("確定要將「目前號碼」重置為 0 嗎？ (會將現有號碼加入過號列表)")) return;
+    // 【修改】 移除了括號中的提示
+    if (!confirm("確定要將「目前號碼」重置為 0 嗎？")) return;
     
     const success = await apiRequest("/set-number", { number: 0 });
     if (success) {
@@ -228,4 +225,7 @@ document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents
 document.getElementById("resetPassed").onclick = resetPassed;
 document.getElementById("resetAll").onclick = resetAll;
 
-// [REMOVED] 登出按鈕
+const logoutButton = document.getElementById("logoutButton");
+if (logoutButton) {
+    logoutButton.onclick = showLogin;
+}
