@@ -14,7 +14,7 @@
 
         html,
         body {
-            height: 100%; /* 讓頁面能佔滿全螢幕 */
+            height: 100%;
             margin: 0;
             padding: 0;
         }
@@ -23,17 +23,15 @@
             font-family: "Microsoft JhengHei", sans-serif;
             text-align: center;
             background: #f0f4f8;
-            /* 使用 Flexbox 讓內容垂直置中 */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 20px;
-            box-sizing: border-box; /* 確保 padding 不會影響 100% 高度 */
+            box-sizing: border-box;
         }
 
         h1 {
-            /* clamp(最小, 偏好, 最大) */
             font-size: clamp(2rem, 6vw, 3rem);
             color: #dc2626;
             margin: 0;
@@ -45,27 +43,53 @@
             margin: 20px 0 0 0;
         }
 
+        /* 【新增】 主顯示區域 Flex 容器 */
+        #main-display-area {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center; /* 垂直置中 */
+            width: 100%;
+            margin-top: 15px; /* 與上方 H2 的間距 */
+        }
+
+        /* 【新增】 左右側文字樣式 */
+        .side-text {
+            flex: 1; /* 關鍵：佔用所有可用空間 */
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            color: #333;
+            padding: 0 20px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            /* 讓空元素不佔高度 */
+            min-height: 1.2em;
+        }
+        .side-text:empty {
+            min-height: 0;
+        }
+
+        #leftText {
+            text-align: right; /* 文字靠右 (朝向號碼) */
+        }
+
+        #rightText {
+            text-align: left; /* 文字靠左 (朝向號碼) */
+        }
+
+        /* 【修改】 號碼樣式 */
         #number {
             font-size: clamp(8rem, 30vw, 12rem);
             color: #2563eb;
-            /* 【修改】 分開設定上下邊距 */
-            margin-top: 15px; 
-            margin-bottom: 5px; /* 【修改】 大幅縮小下邊距 (原為 15px) */
+            /* 關鍵：設定左右間距，避免文字貼著號碼 */
+            margin: 0 clamp(15px, 4vw, 40px);
             font-weight: bold;
+            flex-shrink: 0; /* 確保號碼本身不被壓縮 */
         }
-        
-        #displayText {
-            font-size: clamp(2rem, 6vw, 3rem);
-            color: #333;
-            margin-top: 0; /* (保持 0) */
-            min-height: 1.2em; 
-            white-space: pre-wrap; 
-            word-break: break-word; 
-            width: 90%; 
-        }
-        
+
+        /* 【修改】 移除 #displayText 樣式 */
+        /* 【修改】 調整過號容器的上邊距 */
         #passed-container {
-            margin-top: 10px; /* 【再次修改】 上邊距改為 10px (原為 15px) */
+            margin-top: 10px; /* 緊貼主顯示區 */
             width: 100%;
         }
 
@@ -82,7 +106,7 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 10px; /* 號碼之間的間距 */
+            gap: 10px;
         }
 
         #passedList li {
@@ -99,9 +123,13 @@
 <body>
     <h1>💉熱血不宜攔！🩸</h1>
     <h2>目前號碼：</h2>
-    <h3 id="number">0</h3>
-    <h4 id="displayText"></h4>
 
+    <div id="main-display-area">
+        <div id="leftText" class="side-text"></div>
+        <h3 id="number">0</h3>
+        <div id="rightText" class="side-text"></div>
+    </div>
+    
     <div id="passed-container">
         <h3>已叫號碼 (過號)</h3>
         <ul id="passedList">
@@ -109,23 +137,33 @@
     </div>
 
     <script>
-        // --- JavaScript (不需變動) ---
         const socket = io();
+        
+        // 【修改】 抓取新元素
         const numberEl = document.getElementById("number");
-        const textEl = document.getElementById("displayText");
+        const leftTextEl = document.getElementById("leftText");
+        const rightTextEl = document.getElementById("rightText");
         const passedListEl = document.getElementById("passedList");
+        // 【移除】 textEl
 
         socket.on("update", (num) => {
             numberEl.textContent = num;
         });
 
-        socket.on("updateText", (text) => {
-            textEl.textContent = text || "";
+        // 【新增】 監聽左側文字
+        socket.on("updateLeftText", (text) => {
+            leftTextEl.textContent = text || "";
         });
+
+        // 【新增】 監聽右側文字
+        socket.on("updateRightText", (text) => {
+            rightTextEl.textContent = text || "";
+        });
+        
+        // 【移除】 updateText 監聽器
 
         socket.on("updatePassed", (numbers) => {
             passedListEl.innerHTML = "";
-
             if (numbers && numbers.length > 0) {
                 numbers.forEach((num) => {
                     const li = document.createElement("li");
