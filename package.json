@@ -1,0 +1,17 @@
+{
+  "name": "socket-number-system",
+  "version": "1.0.0",
+  "description": "A real-time number calling system",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "ioredis": "^5.4.1"
+    
+  }
+}
