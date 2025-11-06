@@ -6,7 +6,6 @@ const loginButton = document.getElementById("login-button");
 const loginError = document.getElementById("login-error");
 const numberEl = document.getElementById("number");
 
-// 抓取新的 GUI 元素
 const passedListUI = document.getElementById("passed-list-ui");
 const newPassedNumberInput = document.getElementById("new-passed-number");
 const addPassedBtn = document.getElementById("add-passed-btn");
@@ -20,23 +19,23 @@ const saveFeaturedButton = document.getElementById("saveFeaturedContents");
 
 // --- 2. 全域變數 ---
 let token = "";
-// const TOKEN_KEY = "adminToken"; // [REMOVED]
+// (已移除 LocalStorage 的 TOKEN_KEY)
+
+// 【新增】 用於 UI 編輯的本地暫存陣列
+let localPassedNumbers = [];
+let localFeaturedContents = [];
 
 // --- 3. Socket.io ---
 const socket = io({ autoConnect: false });
 
 // --- 4. 登入/顯示邏輯 ---
-
-/** 顯示登入畫面 (同時也是登出函式) */
 function showLogin() {
     loginContainer.style.display = "block";
     adminPanel.style.display = "none";
-    // localStorage.removeItem(TOKEN_KEY); // [REMOVED]
     document.title = "後台管理 - 登入";
     socket.disconnect(); 
 }
 
-/** 顯示後台控制台 */
 function showPanel() {
     loginContainer.style.display = "none";
     adminPanel.style.display = "block";
@@ -44,7 +43,6 @@ function showPanel() {
     socket.connect(); 
 }
 
-/** [API] 檢查 Token 是否有效 */
 async function checkToken(tokenToCheck) {
     if (!tokenToCheck) return false;
     try {
@@ -60,13 +58,11 @@ async function checkToken(tokenToCheck) {
     }
 }
 
-/** 嘗試登入 */
 async function attemptLogin(tokenToCheck) {
     loginError.textContent = "驗證中...";
     const isValid = await checkToken(tokenToCheck);
     if (isValid) {
         token = tokenToCheck;
-        // localStorage.setItem(TOKEN_KEY, tokenToCheck); // [REMOVED]
         showPanel(); 
     } else {
         loginError.textContent = "密碼錯誤";
@@ -74,17 +70,14 @@ async function attemptLogin(tokenToCheck) {
     }
 }
 
-/** 【修改】 頁面載入完成時的入口 (強制顯示登入) */
+/** 頁面載入完成時的入口 (強制顯示登入) */
 document.addEventListener("DOMContentLoaded", () => {
-    // 移除自動登入邏輯，一律顯示登入畫面
     showLogin();
 });
 
-// 綁定登入按鈕點擊事件
 loginButton.addEventListener("click", () => {
     attemptLogin(passwordInput.value);
 });
-// 綁定密碼框 Enter 鍵
 passwordInput.addEventListener("keyup", (event) => {
     if (event.key === "Enter") {
         attemptLogin(passwordInput.value);
@@ -95,18 +88,15 @@ passwordInput.addEventListener("keyup", (event) => {
 socket.on("connect", () => { console.log("Socket.io 已連接"); });
 socket.on("update", (num) => (numberEl.textContent = num));
 
-// 【修改】 更新過號列表 (從 Socket)
 socket.on("updatePassed", (numbers) => {
     localPassedNumbers = numbers.map(Number);
-    renderPassedListUI(); // 渲染 UI
+    renderPassedListUI(); 
 });
 
-// 【修改】 更新精選連結 (從 Socket)
 socket.on("updateFeaturedContents", (contents) => {
     localFeaturedContents = contents;
-    renderFeaturedListUI(); // 渲染 UI
+    renderFeaturedListUI(); 
 });
-
 
 // --- 6. API 請求函式 ---
 async function apiRequest(endpoint, body) {
@@ -134,9 +124,6 @@ async function apiRequest(endpoint, body) {
 }
 
 // --- 7. GUI 渲染函式 ---
-// (此區塊為 V29 新增的列表編輯器邏輯)
-
-/** 渲染「過號列表」的 UI */
 function renderPassedListUI() {
     passedListUI.innerHTML = ""; 
     if (localPassedNumbers.length > 5) {
@@ -160,7 +147,6 @@ function renderPassedListUI() {
     });
 }
 
-/** 渲染「精選連結」的 UI */
 function renderFeaturedListUI() {
     featuredListUI.innerHTML = ""; 
     localFeaturedContents.forEach((item, index) => {
@@ -181,10 +167,7 @@ function renderFeaturedListUI() {
     });
 }
 
-
 // --- 8. 控制台按鈕功能 ---
-// (包含 V29 新增的防重複點擊邏輯)
-
 async function changeNumber(direction) {
     await apiRequest("/change-number", { direction });
 }
@@ -224,8 +207,9 @@ async function saveFeaturedContents() {
     saveFeaturedButton.textContent = "儲存精選連結";
 }
 
-// --- 重置功能 (包含 V29 新增的 confirm) ---
+// --- 重置功能 ---
 async function resetNumber() {
+    // 【修改】 移除了括號中的提示
     if (!confirm("確定要將「目前號碼」重置為 0 嗎？")) return;
     const success = await apiRequest("/set-number", { number: 0 });
     if (success) { document.getElementById("manualNumber").value = ""; alert("號碼已重置為 0。"); }
@@ -256,7 +240,6 @@ document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents
 document.getElementById("resetPassed").onclick = resetPassed;
 document.getElementById("resetAll").onclick = resetAll;
 
-// (V29 新增的 "Add" 按鈕)
 addPassedBtn.onclick = () => {
     const num = Number(newPassedNumberInput.value);
     if (num > 0 && !localPassedNumbers.includes(num)) {
@@ -289,5 +272,3 @@ addFeaturedBtn.onclick = () => {
         alert("「連結文字」和「網址」都必須填寫。");
     }
 };
-
-// [REMOVED] 登出按鈕
