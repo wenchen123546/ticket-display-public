@@ -10,7 +10,7 @@ const featuredEditorInput = document.getElementById("featuredEditorInput");
 
 // --- 2. 全域變數 ---
 let token = "";
-const TOKEN_KEY = "adminToken"; // 用於 localStorage 的鍵
+// const TOKEN_KEY = "adminToken"; // [REMOVED]
 
 // --- 3. Socket.io ---
 const socket = io({ autoConnect: false });
@@ -21,7 +21,7 @@ const socket = io({ autoConnect: false });
 function showLogin() {
     loginContainer.style.display = "block";
     adminPanel.style.display = "none";
-    localStorage.removeItem(TOKEN_KEY); // 登出時清除
+    // localStorage.removeItem(TOKEN_KEY); // [REMOVED]
     document.title = "後台管理 - 登入";
     socket.disconnect(); 
 }
@@ -56,7 +56,7 @@ async function attemptLogin(tokenToCheck) {
     const isValid = await checkToken(tokenToCheck);
     if (isValid) {
         token = tokenToCheck;
-        localStorage.setItem(TOKEN_KEY, tokenToCheck); // 登入成功時儲存
+        // localStorage.setItem(TOKEN_KEY, tokenToCheck); // [REMOVED]
         showPanel(); 
     } else {
         loginError.textContent = "密碼錯誤";
@@ -64,14 +64,10 @@ async function attemptLogin(tokenToCheck) {
     }
 }
 
-/** 頁面載入完成時的入口 (實現自動登入) */
-document.addEventListener("DOMContentLoaded", async () => {
-    const storedToken = localStorage.getItem(TOKEN_KEY);
-    if (storedToken) {
-        await attemptLogin(storedToken);
-    } else {
-        showLogin();
-    }
+/** 【修改】 頁面載入完成時的入口 (強制顯示登入) */
+document.addEventListener("DOMContentLoaded", () => {
+    // 移除自動登入邏輯，一律顯示登入畫面
+    showLogin();
 });
 
 // 綁定登入按鈕點擊事件
@@ -157,8 +153,7 @@ async function savePassedNumbers() {
         .filter((n) => n.length > 0)
         .map((n) => Number(n));
         
-    // 【修復】 限制儲存的數量
-    const limitedNumbers = numbersArray.slice(0, 5); // 假設 MAX_PASSED_NUMBERS = 5
+    const limitedNumbers = numbersArray.slice(0, 5); // 限制數量
 
     const success = await apiRequest("/set-passed-numbers", { numbers: limitedNumbers });
     if (success) {
@@ -189,7 +184,6 @@ async function saveFeaturedContents() {
 // --- 重置功能 ---
 
 async function resetNumber() {
-    // 【修復】 加回確認
     if (!confirm("確定要將「目前號碼」重置為 0 嗎？ (會將現有號碼加入過號列表)")) return;
     
     const success = await apiRequest("/set-number", { number: 0 });
@@ -200,14 +194,12 @@ async function resetNumber() {
 }
 
 async function resetPassed() {
-    // 【修復】 加回確認
     if (!confirm("確定要清空「已叫號碼(過號)」列表嗎？")) return;
     
     await apiRequest("/set-passed-numbers", { numbers: [] });
 }
 
 async function resetFeaturedContents() {
-    // 【修復】 加回確認
     if (!confirm("確定要清空「精選連結」嗎？")) return;
     
     const success = await apiRequest("/set-featured-contents", { contents: [] });
@@ -236,8 +228,4 @@ document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents
 document.getElementById("resetPassed").onclick = resetPassed;
 document.getElementById("resetAll").onclick = resetAll;
 
-// 綁定登出按鈕
-const logoutButton = document.getElementById("logoutButton");
-if (logoutButton) {
-    logoutButton.onclick = showLogin;
-}
+// [REMOVED] 登出按鈕
