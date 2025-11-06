@@ -1,7 +1,8 @@
 /*
  * ==========================================
  * 伺服器 (index.js)
- * (無 db.json，純記憶體版本)
+ * * (無 db.json，純記憶體版本)
+ * * (精選內容 已簡化為 僅文字連結)
  * ==========================================
  */
 
@@ -30,9 +31,8 @@ let currentNumber = 0;
 let leftText = "";
 let rightText = "";
 let passedNumbers = [];
-let linksList = [];
-// 【修改】 從單一物件變為陣列
-let featuredContents = []; 
+// 【修改】 精選內容現在只包含文字和網址
+let featuredContents = []; // 格式: [{ linkText: '', linkUrl: '' }]
 const MAX_PASSED_NUMBERS = 5;
 
 // --- 5. Express 中介軟體 (Middleware) ---
@@ -60,7 +60,7 @@ function addNumberToPassed(num) {
 
 // --- 7. API 路由 (Routes) ---
 
-// (check-token, change-number, set-number, set-left-text, set-right-text, set-passed-numbers, set-links 保持不變)
+// (check-token, change-number, set-number, set-left-text, set-right-text, set-passed-numbers 保持不變)
 app.post("/check-token", authMiddleware, (req, res) => { res.json({ success: true }); });
 app.post("/change-number", authMiddleware, (req, res) => {
     const { direction } = req.body;
@@ -88,52 +88,42 @@ app.post("/set-passed-numbers", authMiddleware, (req, res) => {
     passedNumbers = sanitizedNumbers;
     io.emit("updatePassed", passedNumbers); res.json({ success: true, numbers: passedNumbers });
 });
-app.post("/set-links", authMiddleware, (req, res) => {
-    const { links } = req.body;
-    if (!Array.isArray(links)) { return res.status(400).json({ error: "Input must be an array." }); }
-    const sanitizedLinks = links.filter(l => l && typeof l.title === 'string' && typeof l.url === 'string');
-    linksList = sanitizedLinks;
-    io.emit("updateLinks", linksList); res.json({ success: true, links: linksList });
-});
 
-// 【修改】 API 更新為 /set-featured-contents
+
+// 【修改】 API 驗證邏輯
 app.post("/set-featured-contents", authMiddleware, (req, res) => {
-    const { contents } = req.body; // 預期收到一個 'contents' 陣列
+    const { contents } = req.body; 
     
     if (!Array.isArray(contents)) {
         return res.status(400).json({ error: "Input must be an array." });
     }
 
-    // 驗證陣列中的物件
+    // 驗證陣列中的物件 (必須有文字和網址)
     const sanitizedContents = contents.filter(item => 
-        item && (item.imageUrl || item.linkText) // 至少要有圖片或文字
-    ).map(item => ({ // 確保資料乾淨
-        imageUrl: item.imageUrl || '',
+        item && item.linkText && item.linkUrl
+    ).map(item => ({ 
         linkText: item.linkText || '',
         linkUrl: item.linkUrl || ''
     }));
 
     featuredContents = sanitizedContents;
-    io.emit("updateFeaturedContents", featuredContents); // 【修改】 廣播新事件
+    io.emit("updateFeaturedContents", featuredContents); 
     res.json({ success: true, contents: featuredContents });
 });
 
 
-// 【修改】 重置 API
 app.post("/reset", authMiddleware, (req, res) => {
     currentNumber = 0;
     leftText = "";
     rightText = "";
     passedNumbers = [];
-    linksList = [];
-    featuredContents = []; // 【修改】 重置為空陣列
+    featuredContents = [];
     
     io.emit("update", currentNumber);
     io.emit("updateLeftText", leftText);
     io.emit("updateRightText", rightText);
     io.emit("updatePassed", passedNumbers);
-    io.emit("updateLinks", linksList);
-    io.emit("updateFeaturedContents", featuredContents); // 【修改】 廣播新事件
+    io.emit("updateFeaturedContents", featuredContents);
     
     res.json({ success: true, message: "已重置所有內容" });
 });
@@ -144,8 +134,7 @@ io.on("connection", (socket) => {
     socket.emit("updateLeftText", leftText);
     socket.emit("updateRightText", rightText);
     socket.emit("updatePassed", passedNumbers);
-    socket.emit("updateLinks", linksList);
-    socket.emit("updateFeaturedContents", featuredContents); // 【修改】 廣播新事件
+    socket.emit("updateFeaturedContents", featuredContents);
 });
 
 // --- 9. 啟動伺服器 ---
