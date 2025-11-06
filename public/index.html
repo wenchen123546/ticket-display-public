@@ -6,7 +6,7 @@
     <title>候位號碼顯示</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        /* (CSS 樣式保持不變，為求簡潔此處省略) */
+        /* (html, body 樣式保持不變) */
         html,
         body {
             min-height: 100%;
@@ -24,21 +24,84 @@
             padding-top: 30px;
             box-sizing: border-box;
         }
-        h1 { font-size: clamp(2rem, 6vw, 3rem); color: #dc2626; margin: 0; }
-        h2 { font-size: clamp(2.5rem, 8vw, 4rem); color: #333; margin: 20px 0 0 0; }
-        #main-display-area { display: flex; flex-direction: row; justify-content: center; align-items: center; width: 100%; margin-top: 15px; }
-        .side-text { flex: 1; font-size: clamp(1.5rem, 4vw, 2.5rem); color: #333; padding: 0 20px; white-space: pre-wrap; word-break: break-word; min-height: 1.2em; }
-        .side-text:empty { min-height: 0; }
-        #leftText { text-align: right; }
-        #rightText { text-align: left; }
-        #number { font-size: clamp(8rem, 30vw, 12rem); color: #2563eb; margin: 0 clamp(15px, 4vw, 40px); font-weight: bold; flex-shrink: 0; }
-        #passed-container { margin-top: 10px; width: 100%; }
-        #passed-container h3 { font-size: clamp(1.8rem, 5vw, 2.5rem); color: #666; margin: 0 0 15px 0; }
-        #passedList { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-        #passedList li { font-size: clamp(2.5rem, 7vw, 3.5rem); color: #888; background: #e0e0e0; padding: 5px 20px; border-radius: 10px; min-width: 40px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
-        #featured-container { margin-top: 25px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .featured-link { font-size: clamp(1.4rem, 4vw, 2rem); color: #8b5cf6; font-weight: bold; text-decoration: none; padding: 8px 15px; border-radius: 8px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s; }
-        .featured-link:hover { text-decoration: underline; background-color: #f0f4f8; transform: translateY(-2px); }
+
+        h1 {
+            font-size: clamp(2rem, 6vw, 3rem);
+            color: #dc2626;
+            margin: 0;
+        }
+
+        h2 {
+            font-size: clamp(2.5rem, 8vw, 4rem);
+            color: #333;
+            /* 【修改】 統一主要區塊間距 */
+            margin: 25px 0 0 0;
+        }
+        
+        #number {
+            font-size: clamp(8rem, 30vw, 12rem);
+            color: #2563eb;
+            /* 【修改】 調整與上方 h2 的距離，並移除下方邊距 */
+            margin: 15px 0 0 0;
+            font-weight: bold;
+        }
+
+        #passed-container {
+            /* 【修改】 統一主要區塊間距 */
+            margin-top: 25px;
+            width: 100%;
+        }
+        #passed-container h3 {
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            color: #666;
+            margin: 0 0 15px 0;
+        }
+        #passedList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        #passedList li {
+            font-size: clamp(2.5rem, 7vw, 3.5rem);
+            color: #888;
+            background: #e0e0e0;
+            padding: 5px 20px;
+            border-radius: 10px;
+            min-width: 40px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #featured-container {
+            /* 【修改】 統一主要區塊間距 */
+            margin-top: 25px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .featured-link {
+            font-size: clamp(1.4rem, 4vw, 2rem);
+            color: #8b5cf6;
+            font-weight: bold;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        .featured-link:hover {
+            text-decoration: underline;
+            background-color: #f0f4f8;
+            transform: translateY(-2px);
+        }
+
+        /* (QR Code & Status Bar 樣式保持不變) */
         #qr-code-container { position: fixed; bottom: 20px; right: 20px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); z-index: 100; }
         #qr-code-container img { display: block; width: 120px; height: 120px; }
         #qr-code-container p { margin: 5px 0 0 0; font-size: 0.8rem; color: #333; }
@@ -51,14 +114,9 @@
     <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
 
     <h1>💉熱血不宜攔！🩸</h1>
-    
     <h2>目前號碼</h2>
-
-    <div id="main-display-area">
-        <div id="leftText" class="side-text"></div>
-        <h3 id="number">0</h3>
-        <div id="rightText" class="side-text"></div>
-    </div>
+    
+    <h3 id="number">0</h3>
     
     <div id="passed-container">
         <h3>已過號</h3>
@@ -72,8 +130,6 @@
         const socket = io();
         
         const numberEl = document.getElementById("number");
-        const leftTextEl = document.getElementById("leftText");
-        const rightTextEl = document.getElementById("rightText");
         const passedListEl = document.getElementById("passedList");
         const featuredContainerEl = document.getElementById("featured-container");
         const statusBar = document.getElementById("status-bar");
@@ -89,8 +145,6 @@
         });
 
         socket.on("update", (num) => { numberEl.textContent = num; });
-        socket.on("updateLeftText", (text) => { leftTextEl.innerHTML = text || ""; });
-        socket.on("updateRightText", (text) => { rightTextEl.innerHTML = text || ""; });
         
         socket.on("updatePassed", (numbers) => {
             passedListEl.innerHTML = "";
@@ -108,7 +162,6 @@
             
             if (contents && contents.length > 0) {
                 let hasVisibleLinks = false;
-
                 contents.forEach(item => {
                     if (item && item.linkText && item.linkUrl) {
                         const a = document.createElement("a");
@@ -126,7 +179,6 @@
                 } else {
                     featuredContainerEl.style.display = "none";
                 }
-
             } else {
                 featuredContainerEl.style.display = "none";
             }
