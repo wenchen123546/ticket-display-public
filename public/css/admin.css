@@ -137,14 +137,11 @@ body {
     margin-bottom: 0;
 }
 
-/* * * ********** 這裡是關鍵修正 **********
- * */
 .control-group.button-row { 
     flex-direction: row; 
     justify-content: center; 
-    flex-wrap: wrap; /* <-- 修正：允許按鈕換行 */
+    flex-wrap: wrap; /* <-- 允許按鈕換行 */
 }
-/* *************************************** */
 
 .control-group label { 
     display: block; 
@@ -276,7 +273,17 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     }
 }
 @media (max-width: 768px) { 
-    body { padding: 20px 10px; } 
+    /* * * ********** 這裡是關鍵修正 **********
+     * 縮小 body 和 card 的 padding，以容納按鈕 */
+    body { 
+        padding: 10px; /* 縮小 body padding */
+        padding-top: 30px; 
+    } 
+    .admin-card {
+        padding: 15px; /* 縮小 card padding */
+    }
+    /* *************************************** */
+
     #login-container { margin: 30px auto; padding: 20px; } 
     #admin-panel h1 { font-size: 2.2rem; } 
     #number { font-size: 4rem; } 
