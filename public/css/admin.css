@@ -196,7 +196,23 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     box-sizing: border-box; 
     text-align: center; /* 置中 */
 }
-.list-editor ul { list-style: none; padding: 0; margin: 0 0 15px 0; width: 100%; }
+
+/* * * * * ********** 這裡是關鍵修正 **********
+ * 為 ul 增加 max-height 和 overflow-y (捲軸)
+ * ***************************************
+ */
+.list-editor ul { 
+    list-style: none; 
+    padding: 0; 
+    margin: 0 0 15px 0; 
+    width: 100%;
+    max-height: 150px; /* <-- 【B. 修正】 增加最大高度 */
+    overflow-y: auto;  /* <-- 【B. 修正】 增加垂直捲軸 */
+    padding-right: 5px; /* 讓捲軸和內容有點間距 */
+}
+/* ***************************************
+ */
+
 .list-editor li { 
     display: flex; 
     justify-content: space-between; 
@@ -333,16 +349,10 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     display: inline; /* 覆蓋 display: block */
 }
 
-/* * * * * ********** 這裡是關鍵修正 **********
- * 覆蓋 input 繼承來的 width: 90% 和 margin-top: 10px
- * ***************************************
- */
 .sound-toggle-group input[type="checkbox"] { 
-    margin-top: 0;  /* <-- 修正 margin-top */
-    width: auto;    /* <-- 【B. 修正】 就是這一行，修復寬度 */
+    margin-top: 0;  /* 覆蓋 margin-top */
+    width: auto;    /* 覆蓋 width: 90% */
 }
-/* ***************************************
- */
 
 /* --- 10. 管理員日誌樣式 --- */
 
