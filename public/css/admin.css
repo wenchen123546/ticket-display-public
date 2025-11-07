@@ -136,7 +136,16 @@ body {
 .admin-card .control-group:last-child {
     margin-bottom: 0;
 }
-.control-group.button-row { flex-direction: row; justify-content: center; }
+
+/* * * ********** 這裡是關鍵修正 **********
+ * */
+.control-group.button-row { 
+    flex-direction: row; 
+    justify-content: center; 
+    flex-wrap: wrap; /* <-- 修正：允許按鈕換行 */
+}
+/* *************************************** */
+
 .control-group label { 
     display: block; 
     font-size: 1.1rem; 
