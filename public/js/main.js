@@ -11,17 +11,18 @@ const lastUpdatedEl = document.getElementById("last-updated");
 const localMuteBtn = document.getElementById("local-mute-btn");
 const featuredEmptyMsg = document.getElementById("featured-empty-msg");
 const passedContainerEl = document.getElementById("passed-container"); 
+const soundPrompt = document.getElementById("sound-prompt"); // 【新】
 
 // --- 3. 前台全域狀態 ---
 let isSoundEnabled = true;
 let isLocallyMuted = false;
 let lastUpdateTime = null;
-let isPublic = true; // 【新功能】 系統是否公開
+let isPublic = true;
+let audioPermissionGranted = false; // 【新】 標記是否已取得權限
 
 // --- 4. Socket.io 連線狀態監聽 ---
 socket.on("connect", () => {
     console.log("Socket.io 已連接");
-    // 只有在系統公開時才隱藏狀態條
     if (isPublic) {
         statusBar.classList.remove("visible"); 
     }
@@ -29,7 +30,6 @@ socket.on("connect", () => {
 
 socket.on("disconnect", () => {
     console.log("Socket.io 已斷線");
-    // 只有在系統公開時才顯示斷線
     if (isPublic) {
         statusBar.classList.add("visible"); 
     }
@@ -48,15 +48,11 @@ socket.on("updateSoundSetting", (isEnabled) => {
     isSoundEnabled = isEnabled;
 });
 
-// 【新功能】 監聽公開狀態
 socket.on("updatePublicStatus", (status) => {
     console.log("Public status updated:", status);
     isPublic = status;
-    // 使用 classList.toggle 來控制 body 的 class
     document.body.classList.toggle("is-closed", !isPublic);
-    
     if (!isPublic) {
-        // 如果系統被設為關閉，立刻隱藏 "斷線" 提示
         statusBar.classList.remove("visible");
     }
 });
@@ -67,13 +63,41 @@ socket.on("updateTimestamp", (timestamp) => {
     lastUpdatedEl.textContent = `最後更新於 ${timeString}`;
 });
 
+// --- 【新】 獨立的播放音效函式 ---
+function playNotificationSound() {
+    // 如果全域關閉、本機靜音，或音效元件不存在，則不播放
+    if (!notifySound || !isSoundEnabled || isLocallyMuted) {
+        return;
+    }
+
+    // 如果已取得權限，就直接播放
+    if (audioPermissionGranted) {
+        notifySound.play().catch(e => console.warn("音效播放失敗 (已有權限):", e));
+        return;
+    }
+
+    // 如果尚未取得權限，嘗試播放
+    const playPromise = notifySound.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            // 播放成功！標記權限，隱藏提示
+            audioPermissionGranted = true;
+            if (soundPrompt) soundPrompt.style.display = 'none';
+        }).catch(error => {
+            // 播放失敗，顯示提示
+            console.warn("音效播放失敗，等待使用者互動:", error);
+            if (soundPrompt) soundPrompt.style.display = 'block';
+            audioPermissionGranted = false;
+        });
+    }
+}
+
 socket.on("update", (num) => {
     if (numberEl.textContent !== String(num)) {
         numberEl.textContent = num;
         
-        if (notifySound && isSoundEnabled && !isLocallyMuted) {
-            notifySound.play().catch(e => console.warn("音效播放失敗:", e));
-        }
+        // --- 【新】 呼叫獨立的播放函式 ---
+        playNotificationSound(); 
         
         document.title = `目前號碼 ${num} - 候位顯示`;
         numberEl.classList.add("updated");
@@ -83,12 +107,9 @@ socket.on("update", (num) => {
 
 socket.on("updatePassed", (numbers) => {
     passedListEl.innerHTML = "";
-    
     const isEmpty = !numbers || numbers.length === 0;
     passedContainerEl.classList.toggle("is-empty", isEmpty);
-
     if (!isEmpty) {
-        // --- 【優化 2】 使用 DocumentFragment ---
         const fragment = document.createDocumentFragment();
         numbers.forEach((num) => {
             const li = document.createElement("li");
@@ -96,20 +117,15 @@ socket.on("updatePassed", (numbers) => {
             fragment.appendChild(li);
         });
         passedListEl.appendChild(fragment);
-        // --- 【優化 2 結束】 ---
     }
 });
 
 socket.on("updateFeaturedContents", (contents) => {
     featuredContainerEl.innerHTML = ""; 
-    
     const emptyMsgNode = featuredEmptyMsg.cloneNode(true);
     featuredContainerEl.appendChild(emptyMsgNode);
-
-    // --- 【優化 2】 使用 DocumentFragment ---
     const fragment = document.createDocumentFragment();
     let hasVisibleLinks = false; 
-
     if (contents && contents.length > 0) {
         contents.forEach(item => {
             if (item && item.linkText && item.linkUrl) {
@@ -123,10 +139,8 @@ socket.on("updateFeaturedContents", (contents) => {
             }
         });
     }
-    
     featuredContainerEl.appendChild(fragment);
     featuredContainerEl.classList.toggle("is-empty", !hasVisibleLinks); 
-    // --- 【優化 2 結束】 ---
 });
 
 /*
@@ -177,14 +191,22 @@ try {
 /*
  * =============================================
  * 8. 音效啟用 / 個人靜音
- * (【1.A 修正】 修正拼寫錯誤)
+ * (【新】 整合音效權限邏輯)
  * =============================================
  */
-if (notifySound) {
-    notifySound.play().then(() => {
-        console.log("音效預載入/自動播放成功。");
-    }).catch(e => {
-        console.warn("音效自動播放失敗，可能需要使用者互動。");
+
+// 【新】 點擊提示時，嘗試播放並隱藏提示
+if (soundPrompt) {
+    soundPrompt.addEventListener("click", () => {
+        if (notifySound) {
+            notifySound.play().then(() => {
+                audioPermissionGranted = true;
+                soundPrompt.style.display = 'none';
+            }).catch(e => {
+                console.error("點擊提示後播放失敗:", e);
+                soundPrompt.style.display = 'none'; // 播放失敗也隱藏，避免干擾
+            });
+        }
     });
 }
 
@@ -199,6 +221,16 @@ if(localMuteBtn) {
         } else {
             localMuteBtn.textContent = "🔈";
             localMuteBtn.setAttribute("aria-label", "靜音");
+            
+            // 【新】 在取消靜音時，順便嘗試取得權限
+            // (如果尚未取得權限，這就是一個很好的互動時機)
+            if (!audioPermissionGranted) {
+                playNotificationSound();
+            }
         }
     });
 }
+
+// 首次載入時，嘗試自動播放以取得權限
+// (如果失敗，playNotificationSound 內部會處理提示的顯示)
+playNotificationSound();
