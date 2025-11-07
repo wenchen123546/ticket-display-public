@@ -328,19 +328,21 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     margin-right: auto; /* 保留使其置中 */
 }
 
-/* * * * * ********** 這裡是關鍵修正 **********
- * 覆蓋 .control-group label 繼承來的 display: block，
- * 讓 label 恢復為行內元素，才能和 checkbox 水平排列。
- * ***************************************
- */
 .sound-toggle-group label { 
     margin-bottom: 0; 
-    display: inline; /* <-- 【A. 修正】 就是這一行 */
+    display: inline; /* 覆蓋 display: block */
+}
+
+/* * * * * ********** 這裡是關鍵修正 **********
+ * 覆蓋 input 繼承來的 width: 90% 和 margin-top: 10px
+ * ***************************************
+ */
+.sound-toggle-group input[type="checkbox"] { 
+    margin-top: 0;  /* <-- 修正 margin-top */
+    width: auto;    /* <-- 【B. 修正】 就是這一行，修復寬度 */
 }
 /* ***************************************
  */
-
-.sound-toggle-group input[type="checkbox"] { margin-top: 0; }
 
 /* --- 10. 管理員日誌樣式 --- */
 
