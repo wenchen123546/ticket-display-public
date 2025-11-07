@@ -273,8 +273,6 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     }
 }
 @media (max-width: 768px) { 
-    /* * * ********** 這裡是關鍵修正 **********
-     * 縮小 body 和 card 的 padding，以容納按鈕 */
     body { 
         padding: 10px; /* 縮小 body padding */
         padding-top: 30px; 
@@ -282,8 +280,6 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     .admin-card {
         padding: 15px; /* 縮小 card padding */
     }
-    /* *************************************** */
-
     #login-container { margin: 30px auto; padding: 20px; } 
     #admin-panel h1 { font-size: 2.2rem; } 
     #number { font-size: 4rem; } 
@@ -307,10 +303,16 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 }
 #status-bar.visible { transform: translateY(0); }
 
+
 /* --- 9. 音效開關 (移到 Card 內部) --- */
-.sound-toggle-group { 
+/* * * * ********** 這裡是關鍵修正 **********
+ * 增加 .control-group 選擇器以提高CSS權重，
+ * 確保 flex-direction: row 覆蓋掉 .control-group 的 column。
+ */
+.control-group.sound-toggle-group { 
     flex-direction: row; /* 水平排列 */
     justify-content: center; 
+    align-items: center; /* 垂直置中 */
     gap: 10px; 
     background: #f9f9f9; 
     border: 1px solid var(--color-border); 
@@ -319,6 +321,8 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 }
 .sound-toggle-group label { margin-bottom: 0; }
 .sound-toggle-group input[type="checkbox"] { margin-top: 0; }
+/* *************************************** */
+
 
 /* --- 10. 管理員日誌樣式 --- */
 .admin-log-container { max-width: 100%; }
