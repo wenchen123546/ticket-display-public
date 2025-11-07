@@ -9,8 +9,10 @@
  * * 2. 變更 featuredContents 為 Redis List 結構
  * * 3. 移除 /set-... 路由，改為即時 API (add/remove)
  * * 4. 移除 io.use() 全域驗證，允許前台 (public) 連線
- * * * 【2025-11-07 修正】
- * * 5. 【B. 移除】 移除 MAX_PASSED_NUMBERS (5筆) 的資料讀取與寫入限制
+ * * 5. 移除 MAX_PASSED_NUMBERS (5筆) 的資料讀取與寫入限制
+ * * * 【2025-11-07 優化】
+ * * 6. 【A. 修改】 將 KEY_PASSED_NUMBERS 從 LIST 改為 ZSET (Sorted Set)
+ * * 以實現自動由小到大排序
  * ==========================================
  */
 
@@ -51,12 +53,10 @@ redis.on('error', (err) => { console.error("❌ Redis 連線錯誤:", err); proc
 
 // --- 6. Redis Keys & 全域狀態 ---
 const KEY_CURRENT_NUMBER = 'callsys:number';
-const KEY_PASSED_NUMBERS = 'callsys:passed';      // 結構: List
+const KEY_PASSED_NUMBERS = 'callsys:passed';      // 【A. 修改】 結構: ZSET (Sorted Set)
 const KEY_FEATURED_CONTENTS = 'callsys:featured'; // 結構: List (元素為 JSON String)
 const KEY_LAST_UPDATED = 'callsys:updated';
 const KEY_SOUND_ENABLED = 'callsys:soundEnabled';
-
-// 【B. 移除】 已移除 MAX_PASSED_NUMBERS = 5 的常數
 
 // --- 7. Express 中介軟體 (Middleware) ---
 app.use(express.static("public"));
@@ -85,8 +85,8 @@ async function updateTimestamp() {
  */
 async function broadcastPassedNumbers() {
     try {
-        // 【D. 修正】 從 0, MAX_PASSED_NUMBERS - 1 改回 0, -1 (讀取全部)
-        const numbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
+        // 【A. 修改】 從 lrange 改為 zrange (ZSET 會自動排序)
+        const numbersRaw = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
         const numbers = numbersRaw.map(Number); // 確保是數字
         io.emit("updatePassed", numbers);
         await updateTimestamp();
@@ -170,20 +170,12 @@ app.post("/api/passed/add", authMiddleware, async (req, res) => {
             return res.status(400).json({ error: "請提供有效的正整數。" });
         }
 
-        const members = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
-        if (members.includes(String(num))) {
-            return res.status(400).json({ error: "此號碼已在列表中。" });
-        }
+        // 【A. 修改】 從 rpush 改為 zadd
+        // ZADD 會自動處理重複，如果號碼已存在，它只會更新分數 (在這裡沒影響)
+        // 語法: key, score, member
+        await redis.zadd(KEY_PASSED_NUMBERS, num, num);
 
-        // 【C. 移除】 移除 5 筆的長度檢查
-        /*
-        if (members.length >= MAX_PASSED_NUMBERS) {
-            return res.status(400).json({ error: `列表已滿 (最多 ${MAX_PASSED_NUMBERS} 筆)，請先移除。` });
-        }
-        */
-
-        await redis.rpush(KEY_PASSED_NUMBERS, num);
-        await broadcastPassedNumbers(); // 廣播更新 (此函式已被修正為讀取全部)
+        await broadcastPassedNumbers(); // 廣播更新 (此函式已被修正為 zrange)
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -191,7 +183,8 @@ app.post("/api/passed/add", authMiddleware, async (req, res) => {
 app.post("/api/passed/remove", authMiddleware, async (req, res) => {
     try {
         const { number } = req.body;
-        await redis.lrem(KEY_PASSED_NUMBERS, 1, number);
+        // 【A. 修改】 從 lrem 改為 zrem (從 ZSET 移除成員)
+        await redis.zrem(KEY_PASSED_NUMBERS, number);
         await broadcastPassedNumbers(); // 廣播更新
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -252,7 +245,7 @@ app.post("/reset", authMiddleware, async (req, res) => {
     try {
         const multi = redis.multi();
         multi.set(KEY_CURRENT_NUMBER, 0);
-        multi.del(KEY_PASSED_NUMBERS);
+        multi.del(KEY_PASSED_NUMBERS); // <-- 這行依然有效
         multi.del(KEY_FEATURED_CONTENTS); 
         multi.set(KEY_SOUND_ENABLED, "1");
         await multi.exec();
@@ -287,8 +280,8 @@ io.on("connection", async (socket) => {
     try {
         const currentNumber = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
         
-        // 【D. 修正】 從 0, MAX_PASSED_NUMBERS - 1 改回 0, -1 (讀取全部)
-        const passedNumbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
+        // 【A. 修改】 從 lrange 改為 zrange (ZSET 會自動排序)
+        const passedNumbersRaw = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
         const passedNumbers = passedNumbersRaw.map(Number);
         
         const featuredContentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
