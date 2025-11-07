@@ -28,7 +28,6 @@ body {
     padding-top: 30px; 
 }
 
-/* 【改善】增加 sr-only class (用於隱藏標籤) */
 .sr-only {
     position: absolute;
     width: 1px;
@@ -85,7 +84,7 @@ body {
 #admin-panel { 
     display: none; 
     padding-top: 0; 
-    max-width: 1200px; /* 放大寬度以容納兩欄 */
+    max-width: 1200px; 
     margin: 0 auto; 
 }
 #admin-panel h1 { font-size: 3rem; color: var(--color-danger); margin-bottom: 30px; }
@@ -93,7 +92,7 @@ body {
 
 .admin-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* 預設兩欄 */
+    grid-template-columns: 1fr 1fr; 
     gap: 20px;
     width: 100%;
 }
@@ -109,7 +108,7 @@ body {
     border-radius: 10px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    text-align: left; /* 卡片內容預設靠左 */
+    text-align: left; 
 }
 .admin-card h3 {
     display: flex;
@@ -127,12 +126,11 @@ body {
     margin-right: 10px;
 }
 
-/* 將 control-group 移入 card 中 */
 .admin-card .control-group { 
     margin-bottom: 20px; 
     display: flex; 
     flex-direction: column; 
-    align-items: center; /* 內部元素置中 */
+    align-items: center; 
     width: 100%; 
 }
 .admin-card .control-group:last-child {
@@ -142,7 +140,7 @@ body {
 .control-group.button-row { 
     flex-direction: row; 
     justify-content: center; 
-    flex-wrap: wrap; /* <-- 允許按鈕換行 */
+    flex-wrap: wrap; 
 }
 
 .control-group label { 
@@ -151,7 +149,7 @@ body {
     color: var(--color-text); 
     margin-bottom: 8px; 
     font-weight: bold; 
-    text-align: center; /* 標籤置中 */
+    text-align: center; 
 }
 
 /* --- 3. 按鈕 & 輸入框 --- */
@@ -166,7 +164,6 @@ button {
     color: white; 
     min-width: 120px; 
     width: 90%; 
-    /* 【修改】 移除 max-width: 300px; */
     box-sizing: border-box;
 }
 button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
@@ -176,7 +173,6 @@ input, textarea {
     font-size: 1.2rem; 
     padding: 8px; 
     width: 90%; 
-    /* 【修改】 移除 max-width: 300px; */
     text-align: center; 
     border-radius: 6px; 
     border: 1px solid var(--color-border); 
@@ -192,9 +188,12 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     border-radius: 8px; 
     padding: 15px; 
     background: #f9f9f9; 
-    max-width: 100%; /* 寬度改為自適應 */
+    /* 【修改】 統一樣式為 90% */
+    width: 90%;
+    margin: 0 auto; /* 讓 90% 置中 */
+    /* (移除 max-width: 100%) */
     box-sizing: border-box; 
-    text-align: center; /* 置中 */
+    text-align: center; 
 }
 
 .list-editor ul { 
@@ -278,8 +277,16 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     padding: 8px 15px; 
     width: auto; 
 }
-#resetAll { width: 100%; max-width: 100%; }
-#resetAllConfirm { width: 100%; max-width: 100%; }
+#resetAll { 
+    /* 【修改】 統一樣式為 90% */
+    width: 90%; 
+    /* (移除 max-width: 100%) */
+}
+#resetAllConfirm { 
+    /* 【修改】 統一樣式為 90% */
+    width: 90%; 
+    /* (移除 max-width: 100%) */
+}
 
 /* --- 7. RWD --- */
 
@@ -324,30 +331,28 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 
 .control-group.sound-toggle-group,
 .control-group.system-toggle-group { 
-    flex-direction: row; /* 水平排列 */
+    flex-direction: row; 
     justify-content: center; 
-    align-items: center; /* 垂直置中 */
+    align-items: center; 
     gap: 10px; 
     background: #f9f9f9; 
     border: 1px solid var(--color-border); 
     padding: 10px;
-    /* 【修改】 移除 max-width: 300px; */
-    /* (移除 margin-left/right: auto; 因為寬度已是 100%) */
-    width: 90%; /* 【新】 讓它與 input 和 button 的寬度(90%)一致 */
-    box-sizing: border-box; /* 【新】 確保 padding 不會讓它超出 90% */
+    width: 90%; 
+    box-sizing: border-box; 
     margin-bottom: 20px; 
 }
 
 .sound-toggle-group label,
 .system-toggle-group label { 
     margin-bottom: 0; 
-    display: inline; /* 覆蓋 display: block */
+    display: inline; 
 }
 
 .sound-toggle-group input[type="checkbox"],
 .system-toggle-group input[type="checkbox"] { 
-    margin-top: 0;  /* 覆蓋 margin-top */
-    width: auto;    /* 覆蓋 width: 90% */
+    margin-top: 0;  
+    width: auto;    
 }
 
 /* --- 10. 管理員日誌樣式 --- */
@@ -374,8 +379,9 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 /* --- 11. 日誌清除按鈕 --- */
 
 .admin-log-container .btn-clear-log {
-    width: auto; 
-    min-width: 100px;
+    /* 【修改】 統一樣式為 90% */
+    width: 90%; 
+    /* (移除 min-width) */
     padding: 5px 12px;
     font-size: 0.9rem;
     background-color: var(--color-neutral); 
