@@ -3,6 +3,7 @@
  * 伺服器 (index.js)
  * * (使用 Upstash Redis 資料庫)
  * * (已加入「音效開關」功能)
+ * * (已加入 API 驗證、Redis 事務、Socket 錯誤處理)
  * ==========================================
  */
 
@@ -45,8 +46,8 @@ redis.on('error', (err) => { console.error("❌ Redis 連線錯誤:", err); proc
 const KEY_CURRENT_NUMBER = 'callsys:number';
 const KEY_PASSED_NUMBERS = 'callsys:passed';
 const KEY_FEATURED_CONTENTS = 'callsys:featured';
-const KEY_LAST_UPDATED = 'callsys:updated'; 
-const KEY_SOUND_ENABLED = 'callsys:soundEnabled'; // 【新增】 音效狀態
+const KEY_LAST_UPDATED = 'callsys:updated';
+const KEY_SOUND_ENABLED = 'callsys:soundEnabled'; 
 
 const MAX_PASSED_NUMBERS = 5;
 
@@ -63,14 +64,11 @@ const authMiddleware = (req, res, next) => {
 };
 
 // --- 8. 輔助函式 ---
-
 async function updateTimestamp() {
     const now = new Date().toISOString();
     await redis.set(KEY_LAST_UPDATED, now);
     io.emit("updateTimestamp", now);
 }
-
-// (addNumberToPassed 函式保持不變 - 已移除自動添加)
 
 // --- 9. API 路由 (Routes) ---
 
@@ -101,6 +99,12 @@ app.post("/set-number", authMiddleware, async (req, res) => {
     try {
         const { number } = req.body;
         const num = Number(number);
+
+        // 【改善】 增加輸入驗證
+        if (isNaN(num) || num < 0 || !Number.isInteger(num)) {
+            return res.status(400).json({ error: "請提供一個有效的非負整數。" });
+        }
+
         await redis.set(KEY_CURRENT_NUMBER, num);
         io.emit("update", num); 
         await updateTimestamp(); 
@@ -119,7 +123,7 @@ app.post("/set-passed-numbers", authMiddleware, async (req, res) => {
             .map(n => Number(n))
             .filter(n => !isNaN(n) && n > 0 && Number.isInteger(n))
             .slice(0, MAX_PASSED_NUMBERS);
-        
+            
         await redis.del(KEY_PASSED_NUMBERS);
         if (sanitizedNumbers.length > 0) {
             await redis.rpush(KEY_PASSED_NUMBERS, ...sanitizedNumbers);
@@ -160,15 +164,14 @@ app.post("/set-featured-contents", authMiddleware, async (req, res) => {
     }
 });
 
-// 【新增】 API：設定音效開關
 app.post("/set-sound-enabled", authMiddleware, async (req, res) => {
     try {
-        const { enabled } = req.body; // 預期收到布林值 true/false
+        const { enabled } = req.body; 
         const valueToSet = enabled ? "1" : "0";
         await redis.set(KEY_SOUND_ENABLED, valueToSet);
         
-        io.emit("updateSoundSetting", enabled); // 廣播布林值
-        await updateTimestamp(); // 這也是一次更新
+        io.emit("updateSoundSetting", enabled); 
+        await updateTimestamp(); 
         res.json({ success: true, isEnabled: enabled });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -178,15 +181,18 @@ app.post("/set-sound-enabled", authMiddleware, async (req, res) => {
 
 app.post("/reset", authMiddleware, async (req, res) => {
     try {
-        await redis.set(KEY_CURRENT_NUMBER, 0);
-        await redis.del(KEY_PASSED_NUMBERS);
-        await redis.del(KEY_FEATURED_CONTENTS);
-        await redis.set(KEY_SOUND_ENABLED, "1"); // 【新增】 重置時預設為開啟
-        
+        // 【改善】 使用 Redis 事務 (Transaction) 確保原子性
+        const multi = redis.multi();
+        multi.set(KEY_CURRENT_NUMBER, 0);
+        multi.del(KEY_PASSED_NUMBERS);
+        multi.del(KEY_FEATURED_CONTENTS);
+        multi.set(KEY_SOUND_ENABLED, "1");
+        await multi.exec(); // 一次性執行
+
         io.emit("update", 0);
         io.emit("updatePassed", []);
         io.emit("updateFeaturedContents", []);
-        io.emit("updateSoundSetting", true); // 【新增】 廣播重置
+        io.emit("updateSoundSetting", true); 
         
         await updateTimestamp(); 
         
@@ -205,7 +211,6 @@ io.on("connection", async (socket) => {
         const featuredContents = featuredContentsJSON ? JSON.parse(featuredContentsJSON) : [];
         const lastUpdated = await redis.get(KEY_LAST_UPDATED) || new Date().toISOString(); 
         
-        // 【新增】 讀取音效設定，預設為 "1" (開啟)
         const soundEnabledRaw = await redis.get(KEY_SOUND_ENABLED);
         const isSoundEnabled = soundEnabledRaw === null ? "1" : soundEnabledRaw;
 
@@ -214,10 +219,12 @@ io.on("connection", async (socket) => {
         socket.emit("updatePassed", passedNumbers);
         socket.emit("updateFeaturedContents", featuredContents);
         socket.emit("updateTimestamp", lastUpdated); 
-        socket.emit("updateSoundSetting", isSoundEnabled === "1"); // 【新增】
+        socket.emit("updateSoundSetting", isSoundEnabled === "1"); 
 
     } catch (e) {
         console.error("Socket 連線處理失敗:", e);
+        // 【改善】 告知客戶端載入失敗
+        socket.emit("initialStateError", "無法載入初始資料，請稍後重新整理。");
     }
 });
 
