@@ -25,7 +25,7 @@ const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
 let token = ""; // 僅用於 API 請求
 // let localPassedNumbers = []; // 【D. 刪除】
 // let localFeaturedContents = []; // 【D. 刪除】
-let resetAllTimer = null; 
+let resetAllTimer = null;
 
 // --- 3. Socket.io (【B. 已修改】) ---
 const socket = io({ 
@@ -188,7 +188,7 @@ function renderPassedListUI(numbers) {
         deleteBtn.type = "button";
         deleteBtn.className = "delete-item-btn";
         deleteBtn.textContent = "×";
-        
+
         // 【D. 修改】 刪除按鈕直接呼叫 API
         deleteBtn.onclick = async () => {
             if (confirm(`確定要刪除過號 ${number} 嗎？`)) {
@@ -262,36 +262,33 @@ async function resetNumber() {
         alert("號碼已重置為 0。");
     }
 }
-async function resetPassed() {
+
+
+// --- 【2.B 改善】 修正單獨重置功能 ---
+
+async function resetPassed_fixed() { // 名稱可改回 resetPassed
     if (!confirm("確定要清空「已叫號碼(過號)」列表嗎？")) return;
-    // 【D. 修改】 雖然 API 變了，但也可以用 /reset API (或者建立 /api/passed/clear)
-    // 為了簡單，我們直接用現有的 reset API
-    await apiRequest("/reset", {}); // 這是重置 "所有"，可能需要調整
-    // 更好的做法是建立一個專用的 clear API，但為了相容，我們先用舊的
-    // ...
-    // 修正：resetPassed 應該只清空 passed
-    await apiRequest("/set-passed-numbers", { numbers: [] }); // 喔，這個 API 已經被我們刪了
-    // ...
-    // 讓我們改用 resetAll 邏輯中的 "/reset"
-    alert("過號列表已重置。 (注意：此範例中 /reset 會重置所有，若需單獨重置請在 index.js 建立 /api/passed/clear)");
-    // 暫時的解決方案：我們呼叫 /reset
-    await apiRequest("/reset", {});
-}
-// 修正：上面的 resetPassed 邏輯錯了，/reset 會清空所有。
-// 既然 /set-passed-numbers 已刪除，我們也應該修改 resetPassed
-async function resetPassed_fixed() {
-    if (!confirm("確定要清空「已叫號碼(過號)」列表嗎？")) return;
-    // 呼叫 API，但這 API 我們沒做。
-    // 讓我們假設 resetPassed 按鈕是呼叫 /reset 的一部分，或者我們註解掉它
-    adminLog("單獨重置「過號列表」按鈕已失效 (因 API 重構)，請使用「重置所有」。");
-    alert("此功能已停用，請使用「重置所有」。");
+    adminLog("正在清空過號列表...");
+    const success = await apiRequest("/api/passed/clear", {}); // 呼叫新的 API
+    if (success) {
+        adminLog("✅ 過號列表已清空");
+    } else {
+        adminLog("❌ 清空過號列表失敗");
+    }
 }
 
-async function resetFeaturedContents_fixed() {
+async function resetFeaturedContents_fixed() { // 名稱可改回 resetFeaturedContents
     if (!confirm("確定要清空「精選連結」嗎？")) return;
-    adminLog("單獨重置「精選連結」按鈕已失效 (因 API 重構)，請使用「重置所有」。");
-    alert("此功能已停用，請使用「重置所有」。");
+    adminLog("正在清空精選連結...");
+    const success = await apiRequest("/api/featured/clear", {}); // 呼叫新的 API
+    if (success) {
+        adminLog("✅ 精選連結已清空");
+    } else {
+        adminLog("❌ 清空精選連結失敗");
+    }
 }
+// ---
+
 
 // --- 【B. 改善】 重寫 ResetAll 防呆機制 ---
 function cancelResetAll() {
