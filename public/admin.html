@@ -6,41 +6,50 @@
 <title>後台管理 - 登入</title>
 <script src="/socket.io/socket.io.js"></script>
 
-<link rel="stylesheet" href="/css/admin.css?v=4">
+<link rel="stylesheet" href="/css/admin.css?v=5">
 
 <style>
-    /* * == 1. 強制統一所有控制項的寬度為 90% ==
+    /* * == 1. 強制統一「輸入框」和「列表框」的寬度 ==
+     * (已將 input 選擇器變得更精確，避免選到 checkbox)
      */
-    .admin-card button,
-    .admin-card input, 
+    .admin-card input[type="number"],
+    .admin-card input[type="text"],
     .admin-card textarea,
-    .admin-card .list-editor,
-    .admin-card .control-group.sound-toggle-group,
-    .admin-card .control-group.system-toggle-group,
-    .admin-card .admin-log-container .btn-clear-log {
+    .admin-card .list-editor {
         width: 90% !important;
-        max-width: none !important; /* 移除舊的 300px 限制 */
+        max-width: none !important; 
         box-sizing: border-box !important;
         margin-left: auto !important;
         margin-right: auto !important;
     }
 
-    /* * == 2. 【本次修正】 強制置中 Toggle 框內部的文字和勾選框 ==
+    /* * == 2. 強制統一「Toggle 框」的寬度與內部置中 ==
+     * (【本次修正】 新增 gap: 10px)
      */
     .admin-card .control-group.sound-toggle-group,
     .admin-card .control-group.system-toggle-group {
+        width: 90% !important; 
+        max-width: none !important;
+        box-sizing: border-box !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
         display: flex !important;
         flex-direction: row !important;
-        justify-content: center !important; /* <-- 這行是關鍵 */
+        justify-content: center !important; 
         align-items: center !important;
+        gap: 10px !important; /* <-- 這行會強制文字和勾選框緊鄰 */
     }
 
 
-    /* * == 3. 修正按鈕在 control-group 內的邊距 ==
+    /* * == 3. 【本次修正】 強制統一「主要按鈕」的寬度 ==
+     * (只鎖定特定 ID 和 class，避免影響「+」按鈕)
      */
-    .admin-card .control-group button {
-        margin-left: 5px !important;
-        margin-right: 5px !important;
+    #setNumber, #resetAll, #resetAllConfirm, .btn-clear-log {
+        width: 90% !important;
+        max-width: none !important;
+        box-sizing: border-box !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
     
     /* * == 4. 修正 Reset 按鈕的寬度 (讓它們保持並排) ==
