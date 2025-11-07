@@ -1,72 +1,281 @@
 /* --- 1. 基礎 & 登入頁 --- */
-:root { /* ... (變數不變) ... */ }
-body { /* ... */ }
-.sr-only { /* ... */ }
-#login-container { /* ... */ }
-#login-container h1 { /* ... */ }
-#login-container input { /* ... */ }
-#login-container button { /* ... */ }
-#login-container button:hover { /* ... */ }
-#login-error { /* ... */ }
+
+/* 【改善】 使用 CSS 變數 */
+:root {
+  --color-text: #333;
+  --color-bg: #f0f4f8;
+  --color-bg-light: #ffffff;
+  --color-primary: #2563eb;
+  --color-success: #10b981;
+  --color-danger: #dc2626;
+  --color-danger-light: #ef4444;
+  --color-warning: #d97706;
+  --color-warning-dark: #7f1d1d;
+  --color-secondary: #8b5cf6;
+  --color-cyan: #0891b2;
+  --color-neutral: #71717a;
+  --color-border: #ccc;
+  --color-log-bg: #2d3748;
+  --color-log-text: #e2e8f0;
+  --color-log-border: #4a5568;
+}
+
+body { 
+  font-family: "Microsoft JhengHei", sans-serif; 
+  text-align: center; 
+  background: var(--color-bg); 
+  margin: 0; 
+  padding: 20px; 
+  padding-top: 30px; 
+}
+
+/* 【改善】 增加 sr-only class (用於隱藏標籤) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+#login-container { 
+  max-width: 400px; 
+  width: 90%; 
+  box-sizing: border-box; 
+  margin: 50px auto; 
+  padding: 30px; 
+  background: var(--color-bg-light); 
+  border-radius: 10px; 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
+}
+#login-container h1 { 
+  font-size: 2.2rem; 
+  color: var(--color-danger); 
+  margin-top: 0; 
+  margin-bottom: 25px; 
+}
+#login-container input { 
+  font-size: 1.2rem; 
+  padding: 12px; 
+  width: 100%; 
+  border-radius: 6px; 
+  border: 1px solid var(--color-border); 
+  box-sizing: border-box; 
+  text-align: left; 
+}
+#login-container button { 
+  font-size: 1.2rem; 
+  padding: 12px 20px; 
+  margin-top: 20px; 
+  border: none; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  color: white; 
+  background-color: var(--color-primary); 
+  width: 100%; 
+}
+#login-container button:hover { opacity: 0.9; }
+#login-error { color: var(--color-danger); margin-top: 15px; height: 1.2rem; }
 
 /* --- 2. 後台控制台 --- */
-#admin-panel { /* ... */ }
-#admin-panel h1 { /* ... */ }
-#number { /* ... */ }
-.control-group { /* ... */ }
-.control-group.button-row { /* ... */ }
-.control-group label { /* ... */ }
+
+#admin-panel { display: none; padding-top: 0; max-width: 600px; margin: 0 auto; }
+#admin-panel h1 { font-size: 3rem; color: var(--color-danger); margin-bottom: 30px; }
+#number { font-size: 5rem; color: var(--color-primary); margin: 20px 0; }
+.control-group { margin-bottom: 25px; display: flex; flex-direction: column; align-items: center; flex-wrap: wrap; width: 100%; }
+.control-group.button-row { flex-direction: row; justify-content: center; }
+.control-group label { 
+  display: block; 
+  font-size: 1.1rem; 
+  color: var(--color-text); 
+  margin-bottom: 8px; 
+  font-weight: bold; 
+}
 
 /* --- 3. 按鈕 & 輸入框 --- */
-button { /* ... */ }
-button:disabled { /* ... */ }
-.control-group.button-row button { /* ... */ }
-input, textarea { /* ... */ }
-textarea { /* ... */ }
+
+button { 
+  font-size: 1.2rem; 
+  padding: 10px 20px; 
+  margin: 10px 5px; 
+  border: none; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  color: white; 
+  min-width: 120px; 
+  width: 90%; 
+  max-width: 300px; 
+}
+button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
+.control-group.button-row button { width: auto; min-width: 120px; }
+input, textarea { 
+  font-size: 1.2rem; 
+  padding: 8px; 
+  width: 90%; 
+  max-width: 300px; 
+  text-align: center; 
+  border-radius: 6px; 
+  border: 1px solid var(--color-border); 
+  margin-top: 10px; 
+  box-sizing: border-box; 
+}
+textarea { height: 80px; text-align: left; padding: 10px; }
 
 /* --- 4. 列表編輯器 GUI --- */
-.list-editor { /* ... */ }
-.list-editor ul { /* ... */ }
-.list-editor li { /* ... */ }
-.list-editor li span { /* ... */ }
-.list-editor li .delete-item-btn { /* ... */ }
-.input-group { /* ... */ }
-.input-group input { /* ... */ }
-.input-group .btn-add { /* ... */ }
+
+.list-editor { 
+  border: 1px solid var(--color-border); 
+  border-radius: 8px; 
+  padding: 15px; 
+  background: #f9f9f9; 
+  max-width: 500px; 
+  margin-left: auto; 
+  margin-right: auto; 
+  margin-bottom: 25px; 
+  box-sizing: border-box; 
+}
+.list-editor ul { list-style: none; padding: 0; margin: 0 0 15px 0; width: 100%; }
+.list-editor li { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  background: var(--color-bg-light); 
+  padding: 8px 12px; 
+  border-radius: 6px; 
+  border: 1px solid #ddd; 
+  margin-bottom: 8px; 
+  font-size: 1.1rem; 
+  text-align: left; 
+  word-break: break-all; 
+}
+.list-editor li span { margin-right: 10px; color: #555; }
+.list-editor li .delete-item-btn { 
+  background: var(--color-danger-light); 
+  color: white; 
+  border: none; 
+  border-radius: 50%; 
+  width: 30px; 
+  height: 30px; 
+  font-size: 1.2rem; 
+  cursor: pointer; 
+  flex-shrink: 0; 
+  padding: 0; 
+  margin: 0; 
+  min-width: 30px; 
+}
+.input-group { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; }
+.input-group input { flex: 1; min-width: 150px; margin: 5px; max-width: 100%; }
+.input-group .btn-add { 
+  font-size: 1.5rem; 
+  font-weight: bold; 
+  background: var(--color-success); 
+  color: white; 
+  width: 40px; 
+  height: 40px; 
+  border-radius: 50%; 
+  padding: 0; 
+  margin: 5px; 
+  min-width: 40px; 
+  flex-shrink: 0; 
+}
 
 /* --- 5. 顏色主題 --- */
+
 #prev { background-color: var(--color-danger-light); }
 #next { background-color: var(--color-success); }
 #setNumber { background-color: var(--color-primary); }
-/* 【移除】 已刪除的按鈕樣式 */
-/* #savePassedNumbers { background-color: var(--color-cyan); } */
-/* #saveFeaturedContents { background-color: var(--color-secondary); } */
+#savePassedNumbers { background-color: var(--color-cyan); }
+#saveFeaturedContents { background-color: var(--color-secondary); } 
 
-/* --- 6. 重置區域 (不變) --- */
-.reset-zone { /* ... */ }
-.reset-zone h3 { /* ... */ }
-.btn-reset-single { /* ... */ }
-.btn-reset-single:hover { /* ... */ }
-#resetAll { /* ... */ }
+/* --- 6. 重置區域 --- */
 
-/* --- 7. RWD (不變) --- */
-@media (max-width: 768px) { /* ... */ }
+.reset-zone { margin-top: 40px; border-top: 1px solid var(--color-border); padding-top: 20px; width: 100%; }
+.reset-zone h3 { color: #555; font-size: 1.2rem; margin-bottom: 10px; font-weight: bold; }
+.btn-reset-single { background-color: var(--color-warning); font-size: 1rem; padding: 8px 15px; width: auto; }
+.btn-reset-single:hover { opacity: 0.9; }
+#resetAll { background-color: var(--color-warning-dark); margin-top: 20px; }
 
-/* --- 8. 連線狀態提示條 (不變) --- */
-#status-bar { /* ... */ }
-#status-bar.visible { /* ... */ }
+/* --- 7. RWD --- */
 
-/* --- 9. 音效開關 (不變) --- */
-.sound-toggle-group { /* ... */ }
-.sound-toggle-group label { /* ... */ }
-.sound-toggle-group input[type="checkbox"] { /* ... */ }
+@media (max-width: 768px) { 
+  body { padding: 20px 10px; } 
+  #login-container { margin: 30px auto; padding: 20px; } 
+  #admin-panel h1 { font-size: 2.2rem; } 
+  #number { font-size: 4rem; } 
+  .list-editor { padding: 10px; } 
+}
 
-/* --- 10. 管理員日誌樣式 (不變) --- */
-.admin-log-container { /* ... */ }
-#admin-log-ui { /* ... */ }
-#admin-log-ui li { /* ... */ }
-#admin-log-ui li:first-child { /* ... */ }
+/* --- 8. 連線狀態提示條 --- */
 
-/* --- 11. 日誌清除按鈕 (不變) --- */
-.admin-log-container .btn-clear-log { /* ... */ }
-.admin-log-container .btn-clear-log:hover { /* ... */ }
+#status-bar { 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  background-color: var(--color-danger); 
+  color: white; 
+  padding: 8px; 
+  font-weight: bold; 
+  text-align: center; 
+  z-index: 1000; 
+  transform: translateY(-100%); 
+  transition: transform 0.3s ease; 
+}
+#status-bar.visible { transform: translateY(0); }
+
+/* --- 9. 音效開關 --- */
+
+.sound-toggle-group { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  margin-bottom: 25px; 
+  gap: 10px; 
+  background: #f9f9f9; 
+  border: 1px solid var(--color-border); 
+  border-radius: 8px; 
+  padding: 10px; 
+  max-width: 300px; 
+  margin-left: auto; 
+  margin-right: auto; 
+  box-sizing: border-box; 
+}
+.sound-toggle-group label { font-size: 1.2rem; font-weight: bold; color: var(--color-text); margin: 0; }
+.sound-toggle-group input[type="checkbox"] { width: 24px; height: 24px; margin: 0; cursor: pointer; }
+
+/* --- 10. 管理員日誌樣式 --- */
+
+.admin-log-container { max-width: 500px; margin-left: auto; margin-right: auto; }
+#admin-log-ui { 
+  list-style: none; 
+  padding: 10px; 
+  margin: 0; 
+  width: 100%; 
+  height: 120px; 
+  overflow-y: auto; 
+  background: var(--color-log-bg); 
+  color: var(--color-log-text); 
+  border-radius: 6px; 
+  text-align: left; 
+  font-family: "Consolas", "Monaco", monospace; 
+  font-size: 0.9rem; 
+  box-sizing: border-box; 
+}
+#admin-log-ui li { padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid var(--color-log-border); }
+#admin-log-ui li:first-child { color: var(--color-success); font-weight: bold; }
+
+/* --- 11. 日誌清除按鈕 --- */
+
+.admin-log-container .btn-clear-log {
+  width: auto; 
+  min-width: 100px;
+  padding: 5px 12px;
+  font-size: 0.9rem;
+  background-color: var(--color-neutral); 
+  margin-top: 10px;
+}
+.admin-log-container .btn-clear-log:hover { opacity: 0.9; }
