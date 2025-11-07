@@ -3,18 +3,20 @@
 ==========================================
  * 伺服器 (index.js)
  * *
-(已修正 SyntaxError 並整合安全套件)
+(已加入 Helmet, Rate Limiter)
  *
 ==========================================
  */
 
 // --- 1. 模組載入 ---
-const express = require("express"); // <-- 已修正
+const express =
+require("express");
 const http = require("http");
-const socketio = require("socket.io"); // <-- 已修正
+const socketio =
+require("socket.io");
 const Redis = require("ioredis");
-const helmet = require("helmet"); 
-const rateLimit = require('express-rate-limit'); 
+const helmet = require("helmet"); // <-- 【建議 2】載入 Helmet
+const rateLimit = require('express-rate-limit'); // <-- 【建議 1】載入 Rate Limit
 
 // --- 2. 伺服器實體化 ---
 const app = express();
@@ -23,8 +25,10 @@ const io = socketio(server);
 
 // --- 3. 核心設定 & 安全性 ---
 const PORT = process.env.PORT || 3000;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN; // <-- 已修正
-const REDIS_URL = process.env.UPSTASH_REDIS_URL; // <-- 已修正
+const ADMIN_TOKEN =
+process.env.ADMIN_TOKEN;
+const REDIS_URL =
+process.env.UPSTASH_REDIS_URL;
 
 // --- 4. 關鍵檢查 ---
 if (!ADMIN_TOKEN) {
@@ -49,31 +53,34 @@ console.error("❌ Redis 連線錯誤:", err);
 process.exit(1); });
 
 // --- 6. Redis Keys & 全域狀態 ---
-const KEY_CURRENT_NUMBER = 'callsys:number'; // <-- 已修正
-const KEY_PASSED_NUMBERS = 'callsys:passed'; // <-- 已修正
-const KEY_FEATURED_CONTENTS = 'callsys:featured'; // <-- 已修正
+const KEY_CURRENT_NUMBER =
+'callsys:number';
+const KEY_PASSED_NUMBERS =
+'callsys:passed';
+const KEY_FEATURED_CONTENTS =
+'callsys:featured';
 const KEY_LAST_UPDATED = 'callsys:updated';
-const KEY_SOUND_ENABLED = 'callsys:soundEnabled'; // <-- 已修正
+const KEY_SOUND_ENABLED =
+'callsys:soundEnabled'; 
 
 const MAX_PASSED_NUMBERS = 5;
 
 // --- 7. Express 中介軟體 (Middleware) ---
-app.use(helmet()); 
+app.use(helmet()); // <-- 【建議 2】使用 Helmet 增加安全標頭
 app.use(express.static("public"));
 app.use(express.json());
 
-// 建立 API 限制器
+// 【建議 1】 建立 API 限制器
 const adminApiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 分鐘
     max: 50, // 每個 IP 在 15 分鐘內最多 50 次請求
     message: { error: '偵測到過多請求，請 15 分鐘後再試' },
-    standardHeaders: true, 
-    legacyHeaders: false, 
+    standardHeaders: true, // 回傳 'Retry-After' 標頭
+    legacyHeaders: false, // 關閉 'X-RateLimit-*' 標頭
 });
 
-// * * ********** 這裡是關鍵修正 **********
-const authMiddleware = (req, res, next) => {
-// * **************************************
+const authMiddleware = (req, res, next)
+=> {
     const { token } = req.body;
     if (token !== ADMIN_TOKEN) {
         return res.status(403).json({ error: "密碼錯誤" });
@@ -89,6 +96,8 @@ async function updateTimestamp() {
 }
 
 // --- 9. API 路由 (Routes) ---
+// 【建議 1】將 'adminApiLimiter' 應用到所有管理路由
+
 app.post("/check-token",
 adminApiLimiter, authMiddleware, (req, res) => { res.json({ success: true }); });
 
@@ -111,7 +120,6 @@ adminApiLimiter, authMiddleware, async (req, res) => {
         res.json({ success: true, number: num });
      }
 catch (e) {
-        console.error("[API 錯誤 /change-number]:", e); // 增加伺服器日誌
         res.status(500).json({ error: e.message });
      }
 });
@@ -133,7 +141,6 @@ adminApiLimiter, authMiddleware, async (req, res) => {
         res.json({ success: true, number: num });
      }
 catch (e) {
-        console.error("[API 錯誤 /set-number]:", e); // 增加伺服器日誌
         res.status(500).json({ error: e.message });
      }
 });
@@ -161,7 +168,6 @@ Number.isInteger(n))
         res.json({ success: true, numbers: sanitizedNumbers });
      }
 catch (e) {
-        console.error("[API 錯誤 /set-passed-numbers]:", e); // 增加伺服器日誌
         res.status(500).json({ error: e.message });
      }
 });
@@ -195,7 +201,6 @@ JSON.stringify(sanitizedContents));
         res.json({ success: true, contents: sanitizedContents });
      }
 catch (e) {
-        console.error("[API 錯誤 /set-featured-contents]:", e); // 增加伺服器日誌
         res.status(500).json({ error: e.message });
      }
 });
@@ -212,7 +217,6 @@ adminApiLimiter, authMiddleware, async (req, res) => {
         res.json({ success: true, isEnabled: enabled });
      }
 catch (e) {
-        console.error("[API 錯誤 /set-sound-enabled]:", e); // 增加伺服器日誌
         res.status(500).json({ error: e.message });
      }
 });
@@ -238,7 +242,6 @@ adminApiLimiter, authMiddleware, async (req, res) => {
         res.json({ success: true, message: "已重置所有內容" });
      }
 catch (e) {
-        console.error("[API 錯誤 /reset]:", e); // 增加伺服器日誌
         res.status(500).json({ error: e.message });
      }
 });
