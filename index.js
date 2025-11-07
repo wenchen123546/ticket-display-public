@@ -20,6 +20,7 @@
  * * 1. 【1.B】 使用 Lua 腳本修復 /change-number 'prev' 的競爭條件
  * * 2. 【2.A】 增加 /api/passed/clear 和 /api/featured/clear API
  * * 3. 【3.A】 調整 Socket.io 連線日誌與 disconnect 監聽器位置
+ * * 4. 【優化 1】 使用 Redis Pipelining (multi) 優化新連線的資料讀取
  * ==========================================
  */
 
@@ -324,17 +325,37 @@ io.on("connection", async (socket) => {
     // ---
 
     try {
-        const currentNumber = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
+        // --- 【優化 1】 使用 Pipelining (multi) ---
+        // 將 5 個 await 請求打包成 1 次
+        const pipeline = redis.multi();
+        pipeline.get(KEY_CURRENT_NUMBER);
+        pipeline.zrange(KEY_PASSED_NUMBERS, 0, -1);
+        pipeline.lrange(KEY_FEATURED_CONTENTS, 0, -1);
+        pipeline.get(KEY_LAST_UPDATED);
+        pipeline.get(KEY_SOUND_ENABLED);
+        
+        // results 是一個陣列，[err, data]
+        const results = await pipeline.exec();
 
-        // 【A. 修改】 從 lrange 改為 zrange (ZSET 會自動排序)
-        const passedNumbersRaw = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
+        // 檢查是否有任何命令失敗
+        if (results.some(res => res[0] !== null)) {
+            // 找出具體的錯誤
+            const firstError = results.find(res => res[0] !== null)[0];
+            throw new Error(`Redis multi 執行失敗: ${firstError.message}`);
+        }
+
+        // 從 results 陣列中安全地解構資料
+        const currentNumberRaw = results[0][1];
+        const passedNumbersRaw = results[1][1] || [];
+        const featuredContentsJSONs = results[2][1] || [];
+        const lastUpdatedRaw = results[3][1];
+        const soundEnabledRaw = results[4][1];
+        // --- 【優化 1 結束】 ---
+
+        const currentNumber = Number(currentNumberRaw || 0);
         const passedNumbers = passedNumbersRaw.map(Number);
-
-        const featuredContentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
         const featuredContents = featuredContentsJSONs.map(JSON.parse);
-
-        const lastUpdated = await redis.get(KEY_LAST_UPDATED) || new Date().toISOString();
-        const soundEnabledRaw = await redis.get(KEY_SOUND_ENABLED);
+        const lastUpdated = lastUpdatedRaw || new Date().toISOString();
         const isSoundEnabled = soundEnabledRaw === null ? "1" : soundEnabledRaw;
 
         socket.emit("update", currentNumber);
@@ -349,7 +370,6 @@ io.on("connection", async (socket) => {
         socket.emit("initialStateError", "無法載入初始資料，請稍後重新整理。");
     }
 
-    // (已移除此處舊的 if (isAdmin) ... 區塊)
 });
 
 // --- 11. 啟動伺服器 ---
