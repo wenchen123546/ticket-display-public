@@ -306,12 +306,11 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 
 /* --- 9. 音效開關 (移到 Card 內部) --- */
 /* * * * ********** 這裡是關鍵修正 **********
- * 1. 恢復 max-width: 300px
- * 2. 增加 width: auto (覆蓋 .control-group 的 width: 100%)
- * 3. 增加 margin-left/right: auto (使其置中)
+ * 1. 提高權重 (Specificity)
+ * 2. 修正寬度和置中
  */
-.control-group.sound-toggle-group { 
-    flex-direction: row; /* 水平排列 */
+.admin-card .control-group.sound-toggle-group { 
+    flex-direction: row; /* 修正：強制水平排列 */
     justify-content: center; 
     align-items: center; /* 垂直置中 */
     gap: 10px; 
