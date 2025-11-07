@@ -1,0 +1,20 @@
+{
+  "name": "socket-number-system",
+  "version": "1.0.0",
+  "description": "使用 Socket.io 和 Redis 的即時叫號系統",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "author": "Your Name Here",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
