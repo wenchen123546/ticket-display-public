@@ -12,7 +12,7 @@
 
 <div id="login-container">
 <h1>後台管理登入</h1>
-<label for="password-input" class="sr-only">管理 miglia</label>
+<label for="password-input" class="sr-only">管理密碼</label>
 <input type="password" id="password-input" placeholder="請輸入管理密碼" />
 <button id="login-button" type="button">登入</button>
 <p id="login-error"></p>
@@ -42,6 +42,16 @@
 <input type="number" id="manualNumber" placeholder="輸入號碼" />
 <button id="setNumber" type="button" class="btn-primary">設定號碼</button>
 </div>
+
+<div class="control-group list-editor">
+<label>手動編輯過號列表</label>
+<ul id="passed-list-ui"></ul>
+<div class="input-group">
+<label for="new-passed-number" class="sr-only">輸入過號號碼</label>
+<input type="number" id="new-passed-number" placeholder="輸入號碼">
+<button id="add-passed-btn" type="button" class="btn-add">+</button>
+</div>
+</div>
 </div>
 
 <div class="admin-card">
@@ -70,15 +80,6 @@
 </div>
 </div>
 
-<div class="control-group list-editor">
-<label>手動編輯過號列表</label>
-<ul id="passed-list-ui"></ul>
-<div class="input-group">
-<label for="new-passed-number" class="sr-only">輸入過號號碼</label>
-<input type="number" id="new-passed-number" placeholder="輸入號碼">
-<button id="add-passed-btn" type="button" class="btn-add">+</button>
-</div>
-</div>
 </div>
 
 <div class="admin-card">
