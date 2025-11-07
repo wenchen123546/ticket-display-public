@@ -10,7 +10,7 @@
  * * 3. 移除 /set-... 路由，改為即時 API (add/remove)
  * * 4. 移除 io.use() 全域驗證，允許前台 (public) 連線
  * * * 【2025-11-07 修正】
- * * 5. 修正 lrange 讀取過號列表時未遵守 MAX_PASSED_NUMBERS 限制
+ * * 5. 【B. 移除】 移除 MAX_PASSED_NUMBERS (5筆) 的資料讀取與寫入限制
  * ==========================================
  */
 
@@ -56,7 +56,7 @@ const KEY_FEATURED_CONTENTS = 'callsys:featured'; // 結構: List (元素為 JSO
 const KEY_LAST_UPDATED = 'callsys:updated';
 const KEY_SOUND_ENABLED = 'callsys:soundEnabled';
 
-const MAX_PASSED_NUMBERS = 5; // <-- 這裡是限制
+// 【B. 移除】 已移除 MAX_PASSED_NUMBERS = 5 的常數
 
 // --- 7. Express 中介軟體 (Middleware) ---
 app.use(express.static("public"));
@@ -85,8 +85,8 @@ async function updateTimestamp() {
  */
 async function broadcastPassedNumbers() {
     try {
-        // 【A. 修正】 從 0, -1 改為 0, MAX_PASSED_NUMBERS - 1
-        const numbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, MAX_PASSED_NUMBERS - 1);
+        // 【D. 修正】 從 0, MAX_PASSED_NUMBERS - 1 改回 0, -1 (讀取全部)
+        const numbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
         const numbers = numbersRaw.map(Number); // 確保是數字
         io.emit("updatePassed", numbers);
         await updateTimestamp();
@@ -100,7 +100,7 @@ async function broadcastPassedNumbers() {
  */
 async function broadcastFeaturedContents() {
     try {
-        const contentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1); // 精選連結我們假設沒有5筆限制
+        const contentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
         const contents = contentsJSONs.map(JSON.parse);
         io.emit("updateFeaturedContents", contents);
         await updateTimestamp();
@@ -170,17 +170,20 @@ app.post("/api/passed/add", authMiddleware, async (req, res) => {
             return res.status(400).json({ error: "請提供有效的正整數。" });
         }
 
-        const members = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1); // 這裡檢查長度時需要讀取全部
+        const members = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
         if (members.includes(String(num))) {
             return res.status(400).json({ error: "此號碼已在列表中。" });
         }
 
+        // 【C. 移除】 移除 5 筆的長度檢查
+        /*
         if (members.length >= MAX_PASSED_NUMBERS) {
             return res.status(400).json({ error: `列表已滿 (最多 ${MAX_PASSED_NUMBERS} 筆)，請先移除。` });
         }
+        */
 
         await redis.rpush(KEY_PASSED_NUMBERS, num);
-        await broadcastPassedNumbers(); // 廣播更新 (此函式已被修正為只廣播 5 筆)
+        await broadcastPassedNumbers(); // 廣播更新 (此函式已被修正為讀取全部)
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -284,8 +287,8 @@ io.on("connection", async (socket) => {
     try {
         const currentNumber = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
         
-        // 【A. 修正】 從 0, -1 改為 0, MAX_PASSED_NUMBERS - 1
-        const passedNumbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, MAX_PASSED_NUMBERS - 1);
+        // 【D. 修正】 從 0, MAX_PASSED_NUMBERS - 1 改回 0, -1 (讀取全部)
+        const passedNumbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
         const passedNumbers = passedNumbersRaw.map(Number);
         
         const featuredContentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
