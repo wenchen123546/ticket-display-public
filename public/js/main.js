@@ -13,19 +13,26 @@ const featuredEmptyMsg = document.getElementById("featured-empty-msg");
 const passedContainerEl = document.getElementById("passed-container"); 
 
 // --- 3. 前台全域狀態 ---
-let isSoundEnabled = true; // 全域開關 (來自伺服器)
-let isLocallyMuted = false; // 本機開關 (初始為 false = 未靜音)
-let lastUpdateTime = null; // 時間戳
+let isSoundEnabled = true;
+let isLocallyMuted = false;
+let lastUpdateTime = null;
+let isPublic = true; // 【新功能】 系統是否公開
 
 // --- 4. Socket.io 連線狀態監聽 ---
 socket.on("connect", () => {
     console.log("Socket.io 已連接");
-    statusBar.classList.remove("visible"); 
+    // 只有在系統公開時才隱藏狀態條
+    if (isPublic) {
+        statusBar.classList.remove("visible"); 
+    }
 });
 
 socket.on("disconnect", () => {
     console.log("Socket.io 已斷線");
-    statusBar.classList.add("visible"); 
+    // 只有在系統公開時才顯示斷線
+    if (isPublic) {
+        statusBar.classList.add("visible"); 
+    }
     lastUpdatedEl.textContent = "連線中斷...";
 });
 
@@ -41,6 +48,19 @@ socket.on("updateSoundSetting", (isEnabled) => {
     isSoundEnabled = isEnabled;
 });
 
+// 【新功能】 監聽公開狀態
+socket.on("updatePublicStatus", (status) => {
+    console.log("Public status updated:", status);
+    isPublic = status;
+    // 使用 classList.toggle 來控制 body 的 class
+    document.body.classList.toggle("is-closed", !isPublic);
+    
+    if (!isPublic) {
+        // 如果系統被設為關閉，立刻隱藏 "斷線" 提示
+        statusBar.classList.remove("visible");
+    }
+});
+
 socket.on("updateTimestamp", (timestamp) => {
     lastUpdateTime = new Date(timestamp); 
     const timeString = lastUpdateTime.toLocaleTimeString('zh-TW');
@@ -51,7 +71,6 @@ socket.on("update", (num) => {
     if (numberEl.textContent !== String(num)) {
         numberEl.textContent = num;
         
-        // 播放音效的檢查邏輯 (這是正確的)
         if (notifySound && isSoundEnabled && !isLocallyMuted) {
             notifySound.play().catch(e => console.warn("音效播放失敗:", e));
         }
@@ -63,7 +82,7 @@ socket.on("update", (num) => {
 });
 
 socket.on("updatePassed", (numbers) => {
-    passedListEl.innerHTML = ""; // 1. 清除
+    passedListEl.innerHTML = "";
     
     const isEmpty = !numbers || numbers.length === 0;
     passedContainerEl.classList.toggle("is-empty", isEmpty);
@@ -74,9 +93,9 @@ socket.on("updatePassed", (numbers) => {
         numbers.forEach((num) => {
             const li = document.createElement("li");
             li.textContent = num;
-            fragment.appendChild(li); // 先附加到 fragment
+            fragment.appendChild(li);
         });
-        passedListEl.appendChild(fragment); // 2. 一次性附加
+        passedListEl.appendChild(fragment);
         // --- 【優化 2 結束】 ---
     }
 });
@@ -85,7 +104,7 @@ socket.on("updateFeaturedContents", (contents) => {
     featuredContainerEl.innerHTML = ""; 
     
     const emptyMsgNode = featuredEmptyMsg.cloneNode(true);
-    featuredContainerEl.appendChild(emptyMsgNode); // (這個可以先放)
+    featuredContainerEl.appendChild(emptyMsgNode);
 
     // --- 【優化 2】 使用 DocumentFragment ---
     const fragment = document.createDocumentFragment();
@@ -99,13 +118,13 @@ socket.on("updateFeaturedContents", (contents) => {
                 a.target = "_blank";
                 a.href = item.linkUrl;
                 a.textContent = item.linkText;
-                fragment.appendChild(a); // 先附加到 fragment
+                fragment.appendChild(a);
                 hasVisibleLinks = true; 
             }
         });
     }
     
-    featuredContainerEl.appendChild(fragment); // 一次性附加所有連結
+    featuredContainerEl.appendChild(fragment);
     featuredContainerEl.classList.toggle("is-empty", !hasVisibleLinks); 
     // --- 【優化 2 結束】 ---
 });
@@ -146,7 +165,7 @@ try {
         return `${minutes} 分鐘前`;
     }
     setInterval(() => {
-        if (lastUpdateTime && socket.connected) {
+        if (lastUpdateTime && socket.connected && isPublic) { // 只有在公開時才更新時間
             const relativeTime = formatTimeAgo(lastUpdateTime);
             lastUpdatedEl.textContent = `最後更新於 ${relativeTime}`;
         }
@@ -161,8 +180,6 @@ try {
  * (【1.A 修正】 修正拼寫錯誤)
  * =============================================
  */
-
-// 嘗試自動播放
 if (notifySound) {
     notifySound.play().then(() => {
         console.log("音效預載入/自動播放成功。");
@@ -172,21 +189,16 @@ if (notifySound) {
 }
 
 if(localMuteBtn) {
-    // 【1.A 修正】 這裡的邏輯已完全修正
     localMuteBtn.addEventListener("click", () => {
-        isLocallyMuted = !isLocallyMuted; // 切換狀態
-        localMuteBtn.classList.toggle("muted", isLocallyMuted); // 切換 CSS
+        isLocallyMuted = !isLocallyMuted;
+        localMuteBtn.classList.toggle("muted", isLocallyMuted);
 
         if (isLocallyMuted) {
-            // **狀態：已靜音**
-            localMuteBtn.textContent = "🔇"; // 顯示「已靜音」圖示
-            localMuteBtn.setAttribute("aria-label", "取消靜音"); // 提示使用者「點此可取消靜音」
+            localMuteBtn.textContent = "🔇";
+            localMuteBtn.setAttribute("aria-label", "取消靜音");
         } else {
-            // **狀態：未靜音**
-            localMuteBtn.textContent = "🔈"; // 顯示「未靜音」圖示
-            // v v v 修正拼寫錯誤 v v v
-            localMuteBtn.setAttribute("aria-label", "靜音"); // 提示使用者「點此可靜音」
-            // ^ ^ ^ 修正拼寫錯誤 ^ ^ ^
+            localMuteBtn.textContent = "🔈";
+            localMuteBtn.setAttribute("aria-label", "靜音");
         }
     });
 }
