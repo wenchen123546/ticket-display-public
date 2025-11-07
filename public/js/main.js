@@ -80,13 +80,19 @@ function playNotificationSound() {
     const playPromise = notifySound.play();
     if (playPromise !== undefined) {
         playPromise.then(() => {
-            // 播放成功！標記權限，隱藏提示
+            // 播放成功！標記權限
             audioPermissionGranted = true;
-            if (soundPrompt) soundPrompt.style.display = 'none';
+            // (不要隱藏提示，讓它作為切換按鈕)
+            updateMuteButtons(false); // 確保按鈕同步為 "開啟" 狀態
         }).catch(error => {
             // 播放失敗，顯示提示
             console.warn("音效播放失敗，等待使用者互動:", error);
-            if (soundPrompt) soundPrompt.style.display = 'block';
+            if (soundPrompt) {
+                soundPrompt.style.display = 'block';
+                // 【新】 設定初始文字
+                soundPrompt.textContent = "點此啟用提示音效";
+                soundPrompt.classList.remove("is-active");
+            }
             audioPermissionGranted = false;
         });
     }
@@ -191,43 +197,71 @@ try {
 /*
  * =============================================
  * 8. 音效啟用 / 個人靜音
- * (【新】 整合音效權限邏輯)
+ * (【新】 整合音效權限與雙按鈕同步)
  * =============================================
  */
 
-// 【新】 點擊提示時，嘗試播放並隱藏提示
+// --- 【新】 建立一個統一的函式來更新所有靜音按鈕 ---
+function updateMuteButtons(mutedState) {
+    isLocallyMuted = mutedState;
+
+    // 1. 更新 localMuteBtn (圖示按鈕)
+    localMuteBtn.classList.toggle("muted", mutedState);
+    if (mutedState) {
+        localMuteBtn.textContent = "🔇";
+        localMuteBtn.setAttribute("aria-label", "取消靜音");
+    } else {
+        localMuteBtn.textContent = "🔈";
+        localMuteBtn.setAttribute("aria-label", "靜音");
+    }
+
+    // 2. 更新 soundPrompt (文字按鈕), 僅在權限已取得時
+    if (audioPermissionGranted && soundPrompt) {
+        soundPrompt.style.display = 'block'; // 確保它是可見的
+        if (mutedState) {
+            soundPrompt.textContent = "點此啟用提示音效";
+            soundPrompt.classList.remove("is-active");
+        } else {
+            soundPrompt.textContent = "點此關閉提示音效";
+            soundPrompt.classList.add("is-active");
+        }
+    }
+}
+
+
+// --- 【新】 綁定 soundPrompt (文字按鈕) 的點擊事件 ---
 if (soundPrompt) {
     soundPrompt.addEventListener("click", () => {
-        if (notifySound) {
-            notifySound.play().then(() => {
-                audioPermissionGranted = true;
-                soundPrompt.style.display = 'none';
-            }).catch(e => {
-                console.error("點擊提示後播放失敗:", e);
-                soundPrompt.style.display = 'none'; // 播放失敗也隱藏，避免干擾
-            });
+        if (!audioPermissionGranted) {
+            // 模式 1: 尚未取得權限 (這是第一次點擊)
+            if (notifySound) {
+                notifySound.play().then(() => {
+                    audioPermissionGranted = true;
+                    // 權限已取得, 狀態設為 "未靜音"
+                    updateMuteButtons(false); 
+                }).catch(e => {
+                    console.error("點擊提示後播放失敗:", e);
+                    soundPrompt.style.display = 'none'; // 播放失敗, 隱藏按鈕
+                });
+            }
+        } else {
+            // 模式 2: 已有權限, 當作切換按鈕
+            updateMuteButtons(!isLocallyMuted); // 切換目前狀態
         }
     });
 }
 
+// --- 【新】 綁定 localMuteBtn (圖示按鈕) 的點擊事件 ---
 if(localMuteBtn) {
     localMuteBtn.addEventListener("click", () => {
-        isLocallyMuted = !isLocallyMuted;
-        localMuteBtn.classList.toggle("muted", isLocallyMuted);
-
-        if (isLocallyMuted) {
-            localMuteBtn.textContent = "🔇";
-            localMuteBtn.setAttribute("aria-label", "取消靜音");
-        } else {
-            localMuteBtn.textContent = "🔈";
-            localMuteBtn.setAttribute("aria-label", "靜音");
-            
-            // 【新】 在取消靜音時，順便嘗試取得權限
-            // (如果尚未取得權限，這就是一個很好的互動時機)
-            if (!audioPermissionGranted) {
-                playNotificationSound();
-            }
+        
+        // 如果點擊圖示時還沒有權限, 順便嘗試獲取
+        if (!audioPermissionGranted) {
+            playNotificationSound(); // 嘗試播放
         }
+        
+        // 切換目前狀態
+        updateMuteButtons(!isLocallyMuted);
     });
 }
 
