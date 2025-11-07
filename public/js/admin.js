@@ -80,7 +80,6 @@ function adminLog(message) {
     if (!adminLogUI) return;
     const li = document.createElement("li");
     
-    // 【改善】 增加簡單的日誌高亮
     if (message.includes("❌") || message.includes("失敗")) {
         li.style.color = "var(--color-danger-light)";
     } else if (message.includes("✅") || message.includes("成功")) {
@@ -89,7 +88,6 @@ function adminLog(message) {
 
     li.textContent = `[${new Date().toLocaleTimeString('zh-TW')}] ${message}`;
     
-    // 【A. 改善】 改為 append 並自動滾動到底部
     adminLogUI.append(li); 
     adminLogUI.scrollTop = adminLogUI.scrollHeight;
 }
@@ -123,28 +121,63 @@ res.json(); if (res.status === 403) { alert("密碼驗證失敗或 Token 已過�
 showLogin(); } else { alert("發生錯誤：" + (errorData.error || "未知錯誤")); } return false; } return
 true; } catch (err) { alert("網路連線失敗或伺服器無回應：" + err.message); return false; } }
 
-// --- 8. GUI 渲染函式 (保持不變) ---
+// --- 8. GUI 渲染函式 ---
 function renderPassedListUI() {
 passedListUI.innerHTML = ""; if (localPassedNumbers.length > 5) {
 localPassedNumbers = localPassedNumbers.slice(0, 5); }
 localPassedNumbers.forEach((number, index) => { const li =
-document.createElement("li"); li.innerHTML =
-`<span>${number}</span>`; const deleteBtn =
-document.createElement("button"); deleteBtn.type =
-"button"; deleteBtn.className = "delete-item-btn";
+document.createElement("li"); 
+// (此處使用 innerHTML 是安全的，因為 'number' 經過 .map(Number) 已被驗證為數字)
+li.innerHTML = `<span>${number}</span>`; 
+const deleteBtn = document.createElement("button"); 
+deleteBtn.type = "button"; 
+deleteBtn.className = "delete-item-btn";
 deleteBtn.textContent = "×"; deleteBtn.onclick = () => {
 localPassedNumbers.splice(index, 1); renderPassedListUI(); };
 li.appendChild(deleteBtn); passedListUI.appendChild(li); }); }
+
+// * * ********** 【建議 3】 修補 XSS 漏洞 **********
+// 使用 createElement 和 textContent 取代 innerHTML
 function renderFeaturedListUI() {
-featuredListUI.innerHTML = ""; localFeaturedContents.forEach((item,
-index) => { const li = document.createElement("li"); li.innerHTML
-= `<span>${item.linkText}<br><small style="color:
-#666;">${item.linkUrl}</small></span>`; const deleteBtn =
-document.createElement("button"); deleteBtn.type =
-"button"; deleteBtn.className = "delete-item-btn";
-deleteBtn.textContent = "×"; deleteBtn.onclick = () => {
-localFeaturedContents.splice(index, 1); renderFeaturedListUI(); }; li.appendChild(deleteBtn);
-featuredListUI.appendChild(li); }); }
+    featuredListUI.innerHTML = ""; // 清空
+    localFeaturedContents.forEach((item, index) => {
+        const li = document.createElement("li");
+
+        // 1. 建立 span (安全)
+        const span = document.createElement("span");
+        
+        // 2. 建立連結文字 (安全)
+        const textNode = document.createTextNode(item.linkText); // <-- 使用 textContent
+        
+        // 3. 建立 br
+        const br = document.createElement("br");
+
+        // 4. 建立 small (安全)
+        const small = document.createElement("small");
+        small.textContent = item.linkUrl; // <-- 使用 textContent
+        small.style.color = "#666"; // CSS 樣式
+        
+        // 組合
+        span.appendChild(textNode);
+        span.appendChild(br);
+        span.appendChild(small);
+        
+        // 建立刪除按鈕
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "delete-item-btn";
+        deleteBtn.textContent = "×";
+        deleteBtn.onclick = () => {
+            localFeaturedContents.splice(index, 1);
+            renderFeaturedListUI();
+        };
+
+        li.appendChild(span);
+        li.appendChild(deleteBtn);
+        featuredListUI.appendChild(li);
+    });
+}
+// * * **********************************************
 
 // --- 9. 控制台按鈕功能 ---
 async function changeNumber(direction) {
@@ -179,9 +212,7 @@ async function resetFeaturedContents() { if
 apiRequest("/set-featured-contents", { contents: [] }); if (success)
 { alert("精選連結已清空。"); } }
 
-// --- 【B. 改善】 重寫 ResetAll 防呆機制 ---
-
-// 1. (取消) 重置狀態 (隱藏確認鈕，顯示原按鈕)
+// --- (重置防呆機制 保持不變) ---
 function cancelResetAll() {
     resetAllConfirmBtn.style.display = "none";
     resetAllBtn.style.display = "block";
@@ -190,8 +221,6 @@ function cancelResetAll() {
         resetAllTimer = null;
     }
 }
-
-// 2. (確認) 執行重置 (呼叫 API)
 async function confirmResetAll() {
     adminLog("⚠️ 正在執行所有重置...");
     const success = await apiRequest("/reset", {});
@@ -202,16 +231,12 @@ async function confirmResetAll() {
     } else {
         adminLog("❌ 重置失敗");
     }
-    cancelResetAll(); // 無論成功失敗，都恢復按鈕
+    cancelResetAll(); 
 }
-
-// 3. (請求) 點擊第一下 (顯示確認鈕)
 function requestResetAll() {
     adminLog("要求重置所有資料，等待確認...");
     resetAllBtn.style.display = "none";
     resetAllConfirmBtn.style.display = "block";
-
-    // 設定 5 秒超時，自動取消
     resetAllTimer = setTimeout(() => {
         adminLog("重置操作已自動取消 (逾時)");
         cancelResetAll();
@@ -242,7 +267,6 @@ document.getElementById("resetFeaturedContents").onclick
 document.getElementById("resetPassed").onclick
 = resetPassed;
 
-// 【B. 綁定】 綁定新的防呆按鈕
 resetAllBtn.onclick = requestResetAll;
 resetAllConfirmBtn.onclick = confirmResetAll;
 
@@ -262,7 +286,7 @@ renderFeaturedListUI(); newLinkTextInput.value = "";
 newLinkUrlInput.value = ""; } else { alert("「連結文字」和「網址」都必須填寫。");
 } };
 
-// 【新增】綁定清除日誌按鈕
+// 綁定清除日誌按鈕
 clearLogBtn.onclick = clearAdminLog;
 
 // --- 11. 綁定 Enter 鍵 (保持不變) ---
