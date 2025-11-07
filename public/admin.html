@@ -6,7 +6,49 @@
 <title>後台管理 - 登入</title>
 <script src="/socket.io/socket.io.js"></script>
 
-<link rel="stylesheet" href="/css/admin.css?v=2">
+<link rel="stylesheet" href="/css/admin.css?v=4">
+
+<style>
+    /* * == 1. 強制統一所有控制項的寬度為 90% ==
+     */
+    .admin-card button,
+    .admin-card input, 
+    .admin-card textarea,
+    .admin-card .list-editor,
+    .admin-card .control-group.sound-toggle-group,
+    .admin-card .control-group.system-toggle-group,
+    .admin-card .admin-log-container .btn-clear-log {
+        width: 90% !important;
+        max-width: none !important; /* 移除舊的 300px 限制 */
+        box-sizing: border-box !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* * == 2. 【本次修正】 強制置中 Toggle 框內部的文字和勾選框 ==
+     */
+    .admin-card .control-group.sound-toggle-group,
+    .admin-card .control-group.system-toggle-group {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: center !important; /* <-- 這行是關鍵 */
+        align-items: center !important;
+    }
+
+
+    /* * == 3. 修正按鈕在 control-group 內的邊距 ==
+     */
+    .admin-card .control-group button {
+        margin-left: 5px !important;
+        margin-right: 5px !important;
+    }
+    
+    /* * == 4. 修正 Reset 按鈕的寬度 (讓它們保持並排) ==
+     */
+    .admin-card .reset-zone .btn-reset-single {
+        width: auto !important; 
+    }
+</style>
 </head>
 <body>
 
@@ -91,6 +133,7 @@
     <label for="public-toggle">對外開放前台</label>
     <input type="checkbox" id="public-toggle">
 </div>
+
 <div class="reset-zone">
 <div class="control-group button-row">
 <button id="resetNumber" type="button" class="btn-reset-single">重置號碼</button>
