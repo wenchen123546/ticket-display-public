@@ -6,9 +6,10 @@
  * * (已加入 API 驗證、Redis 事務、Socket 錯誤處理)
  * * * 【2025-11-07 重構】
  * * 1. 修復 /change-number 競爭條件 (Race Condition)
- * * 2. 增加 Socket.io 身份驗證 (io.use)
- * * 3. 變更 featuredContents 為 Redis List 結構
- * * 4. 移除 /set-... 路由，改為即時 API (add/remove)
+ * * 2. 變更 featuredContents 為 Redis List 結構
+ * * 3. 移除 /set-... 路由，改為即時 API (add/remove)
+ * * * 【2025-11-07 修正】
+ * * 4. 移除 io.use() 全域驗證，允許前台 (public) 連線
  * ==========================================
  */
 
@@ -50,7 +51,7 @@ redis.on('error', (err) => { console.error("❌ Redis 連線錯誤:", err); proc
 // --- 6. Redis Keys & 全域狀態 ---
 const KEY_CURRENT_NUMBER = 'callsys:number';
 const KEY_PASSED_NUMBERS = 'callsys:passed';      // 結構: List
-const KEY_FEATURED_CONTENTS = 'callsys:featured'; // 【C. 修改】 結構: List (元素為 JSON String)
+const KEY_FEATURED_CONTENTS = 'callsys:featured'; // 結構: List (元素為 JSON String)
 const KEY_LAST_UPDATED = 'callsys:updated';
 const KEY_SOUND_ENABLED = 'callsys:soundEnabled';
 
@@ -76,15 +77,16 @@ async function updateTimestamp() {
     io.emit("updateTimestamp", now);
 }
 
-// --- 8.5 【D. 新增】 輔助廣播函式 (用於即時更新) ---
+// --- 8.5 輔助廣播函式 (用於即時更新) ---
 
 /**
  * 獲取並廣播最新的「過號列表」給所有客戶端
  */
 async function broadcastPassedNumbers() {
     try {
-        const numbers = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
-        io.emit("updatePassed", numbers.map(Number)); // 確保是數字
+        const numbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
+        const numbers = numbersRaw.map(Number); // 確保是數字
+        io.emit("updatePassed", numbers);
         await updateTimestamp();
     } catch (e) {
         console.error("broadcastPassedNumbers 失敗:", e);
@@ -236,10 +238,6 @@ app.post("/api/featured/remove", authMiddleware, async (req, res) => {
 });
 
 
-// --- 【C. & D. 刪除】 舊的 /set-passed-numbers 和 /set-featured-contents 路由 ---
-// (已刪除)
-
-
 app.post("/set-sound-enabled", authMiddleware, async (req, res) => {
     try {
         const { enabled } = req.body;
@@ -279,28 +277,38 @@ app.post("/reset", authMiddleware, async (req, res) => {
     }
 });
 
-// --- 10. Socket.io 連線處理 (【B. 已修改】) ---
+// --- 10. Socket.io 連線處理 (【已修正連線問題】) ---
 
-// 【B. 新增】 Socket.io 驗證中介軟體
-io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (token === ADMIN_TOKEN) {
-        return next(); // 驗證通過
-    }
-    console.warn("❌ Socket 驗證失敗 (來自 " + (socket.handshake.address || "未知") + ")");
-    return next(new Error("Authentication failed")); // 驗證失敗
-});
-
+/* * 【修正】 移除 io.use() 全域中介軟體。
+ * 我們允許所有 Public (前台) 和 Admin (後台) 連線。
+ * * Public (main.js) 連線時不帶 auth.token。
+ * Admin (admin.js) 連線時會帶 auth.token。
+ * * 我們在連線後檢查 token，僅用於在伺服器控制台顯示日誌。
+ * * 真正的安全性由 API 路由的 authMiddleware 保護。
+ */
 
 io.on("connection", async (socket) => {
-    // 只有通過 io.use 驗證的 admin 才會觸發 'connection'
-    console.log("✅ 一個已驗證的 Admin 連線", socket.id);
+    
+    // 檢查連線的是 Admin 還是 Public User
+    const token = socket.handshake.auth.token;
+    const isAdmin = (token === ADMIN_TOKEN && token !== undefined);
 
+    if (isAdmin) {
+        console.log("✅ 一個已驗證的 Admin 連線", socket.id);
+    } else {
+        // 這是前台 (main.js) 的連線
+        console.log("🔌 一個 Public User 連線", socket.id);
+    }
+
+    // 【重要】 無論是誰，都發送完整的初始狀態
     try {
         const currentNumber = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
-        const passedNumbers = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
         
-        // 【C. 修改】 從 List 讀取
+        // 確保 lrange 的結果是數字陣列
+        const passedNumbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
+        const passedNumbers = passedNumbersRaw.map(Number);
+        
+        // 從 List 讀取
         const featuredContentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
         const featuredContents = featuredContentsJSONs.map(JSON.parse);
 
@@ -310,7 +318,7 @@ io.on("connection", async (socket) => {
 
         // [發送] 將資料一次性發送給「剛連線的」客戶端
         socket.emit("update", currentNumber);
-        socket.emit("updatePassed", passedNumbers.map(Number)); // 確保為數字
+        socket.emit("updatePassed", passedNumbers);
         socket.emit("updateFeaturedContents", featuredContents);
         socket.emit("updateTimestamp", lastUpdated);
         socket.emit("updateSoundSetting", isSoundEnabled === "1");
@@ -321,10 +329,12 @@ io.on("connection", async (socket) => {
         socket.emit("initialStateError", "無法載入初始資料，請稍後重新整理。");
     }
     
-    // 監聽斷線 (可選)
-    socket.on("disconnect", (reason) => {
-        console.log(`🔌 Admin ${socket.id} 斷線: ${reason}`);
-    });
+    // 僅為 Admin 增加斷線日誌 (可選)
+    if (isAdmin) {
+        socket.on("disconnect", (reason) => {
+            console.log(`🔌 Admin ${socket.id} 斷線: ${reason}`);
+        });
+    }
 });
 
 // --- 11. 啟動伺服器 ---
