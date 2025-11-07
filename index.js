@@ -8,8 +8,9 @@
  * * 1. 修復 /change-number 競爭條件 (Race Condition)
  * * 2. 變更 featuredContents 為 Redis List 結構
  * * 3. 移除 /set-... 路由，改為即時 API (add/remove)
- * * * 【2025-11-07 修正】
  * * 4. 移除 io.use() 全域驗證，允許前台 (public) 連線
+ * * * 【2025-11-07 修正】
+ * * 5. 修正 lrange 讀取過號列表時未遵守 MAX_PASSED_NUMBERS 限制
  * ==========================================
  */
 
@@ -55,7 +56,7 @@ const KEY_FEATURED_CONTENTS = 'callsys:featured'; // 結構: List (元素為 JSO
 const KEY_LAST_UPDATED = 'callsys:updated';
 const KEY_SOUND_ENABLED = 'callsys:soundEnabled';
 
-const MAX_PASSED_NUMBERS = 5;
+const MAX_PASSED_NUMBERS = 5; // <-- 這裡是限制
 
 // --- 7. Express 中介軟體 (Middleware) ---
 app.use(express.static("public"));
@@ -84,7 +85,8 @@ async function updateTimestamp() {
  */
 async function broadcastPassedNumbers() {
     try {
-        const numbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
+        // 【A. 修正】 從 0, -1 改為 0, MAX_PASSED_NUMBERS - 1
+        const numbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, MAX_PASSED_NUMBERS - 1);
         const numbers = numbersRaw.map(Number); // 確保是數字
         io.emit("updatePassed", numbers);
         await updateTimestamp();
@@ -98,7 +100,7 @@ async function broadcastPassedNumbers() {
  */
 async function broadcastFeaturedContents() {
     try {
-        const contentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
+        const contentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1); // 精選連結我們假設沒有5筆限制
         const contents = contentsJSONs.map(JSON.parse);
         io.emit("updateFeaturedContents", contents);
         await updateTimestamp();
@@ -111,26 +113,22 @@ async function broadcastFeaturedContents() {
 
 app.post("/check-token", authMiddleware, (req, res) => { res.json({ success: true }); });
 
-// --- 【A. 修改】 修復 Race Condition ---
 app.post("/change-number", authMiddleware, async (req, res) => {
     try {
         const { direction } = req.body;
         let num;
 
         if (direction === "next") {
-            // 【A. 修改】 使用 INCR 原子操作
             num = await redis.incr(KEY_CURRENT_NUMBER);
         }
         else if (direction === "prev") {
-            // 【A. 修改】 使用 DECR (搭配檢查)
             const current = await redis.get(KEY_CURRENT_NUMBER);
             if (Number(current) > 0) {
                 num = await redis.decr(KEY_CURRENT_NUMBER);
             } else {
-                num = 0; // 保持在 0
+                num = 0;
             }
         } else {
-            // 備用：僅獲取當前號碼
             num = await redis.get(KEY_CURRENT_NUMBER) || 0;
         }
 
@@ -162,7 +160,7 @@ app.post("/set-number", authMiddleware, async (req, res) => {
     }
 });
 
-// --- 【D. 新增】 過號列表 (Passed Numbers) 即時 API ---
+// --- 過號列表 (Passed Numbers) 即時 API ---
 
 app.post("/api/passed/add", authMiddleware, async (req, res) => {
     try {
@@ -172,19 +170,17 @@ app.post("/api/passed/add", authMiddleware, async (req, res) => {
             return res.status(400).json({ error: "請提供有效的正整數。" });
         }
 
-        // 檢查是否已存在
-        const members = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
+        const members = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1); // 這裡檢查長度時需要讀取全部
         if (members.includes(String(num))) {
             return res.status(400).json({ error: "此號碼已在列表中。" });
         }
 
-        // 檢查長度
         if (members.length >= MAX_PASSED_NUMBERS) {
             return res.status(400).json({ error: `列表已滿 (最多 ${MAX_PASSED_NUMBERS} 筆)，請先移除。` });
         }
 
         await redis.rpush(KEY_PASSED_NUMBERS, num);
-        await broadcastPassedNumbers(); // 廣播更新
+        await broadcastPassedNumbers(); // 廣播更新 (此函式已被修正為只廣播 5 筆)
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -192,7 +188,6 @@ app.post("/api/passed/add", authMiddleware, async (req, res) => {
 app.post("/api/passed/remove", authMiddleware, async (req, res) => {
     try {
         const { number } = req.body;
-        // LREM 1 $number (從列表中移除 1 個符合 $number 的元素)
         await redis.lrem(KEY_PASSED_NUMBERS, 1, number);
         await broadcastPassedNumbers(); // 廣播更新
         res.json({ success: true });
@@ -200,7 +195,7 @@ app.post("/api/passed/remove", authMiddleware, async (req, res) => {
 });
 
 
-// --- 【C. & D. 新增】 精選連結 (Featured Contents) 即時 API ---
+// --- 精選連結 (Featured Contents) 即時 API ---
 
 app.post("/api/featured/add", authMiddleware, async (req, res) => {
     try {
@@ -213,9 +208,7 @@ app.post("/api/featured/add", authMiddleware, async (req, res) => {
         }
 
         const item = { linkText, linkUrl };
-        // 【C. 修改】 存入 List，值為 JSON 字串
         await redis.rpush(KEY_FEATURED_CONTENTS, JSON.stringify(item));
-
         await broadcastFeaturedContents(); // 廣播更新
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -223,15 +216,13 @@ app.post("/api/featured/add", authMiddleware, async (req, res) => {
 
 app.post("/api/featured/remove", authMiddleware, async (req, res) => {
     try {
-        const { linkText, linkUrl } = req.body; // 移除是基於內容
+        const { linkText, linkUrl } = req.body; 
         if (!linkText || !linkUrl) {
              return res.status(400).json({ error: "缺少必要參數。" });
         }
         const item = { linkText, linkUrl };
 
-        // 【C. 修改】 從 List 中移除 1 個符合的 JSON 字串
         await redis.lrem(KEY_FEATURED_CONTENTS, 1, JSON.stringify(item));
-
         await broadcastFeaturedContents(); // 廣播更新
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -259,7 +250,7 @@ app.post("/reset", authMiddleware, async (req, res) => {
         const multi = redis.multi();
         multi.set(KEY_CURRENT_NUMBER, 0);
         multi.del(KEY_PASSED_NUMBERS);
-        multi.del(KEY_FEATURED_CONTENTS); // <-- 這依然有效，會刪除 List key
+        multi.del(KEY_FEATURED_CONTENTS); 
         multi.set(KEY_SOUND_ENABLED, "1");
         await multi.exec();
 
@@ -277,38 +268,26 @@ app.post("/reset", authMiddleware, async (req, res) => {
     }
 });
 
-// --- 10. Socket.io 連線處理 (【已修正連線問題】) ---
-
-/* * 【修正】 移除 io.use() 全域中介軟體。
- * 我們允許所有 Public (前台) 和 Admin (後台) 連線。
- * * Public (main.js) 連線時不帶 auth.token。
- * Admin (admin.js) 連線時會帶 auth.token。
- * * 我們在連線後檢查 token，僅用於在伺服器控制台顯示日誌。
- * * 真正的安全性由 API 路由的 authMiddleware 保護。
- */
+// --- 10. Socket.io 連線處理 ---
 
 io.on("connection", async (socket) => {
     
-    // 檢查連線的是 Admin 還是 Public User
     const token = socket.handshake.auth.token;
     const isAdmin = (token === ADMIN_TOKEN && token !== undefined);
 
     if (isAdmin) {
         console.log("✅ 一個已驗證的 Admin 連線", socket.id);
     } else {
-        // 這是前台 (main.js) 的連線
         console.log("🔌 一個 Public User 連線", socket.id);
     }
 
-    // 【重要】 無論是誰，都發送完整的初始狀態
     try {
         const currentNumber = Number(await redis.get(KEY_CURRENT_NUMBER) || 0);
         
-        // 確保 lrange 的結果是數字陣列
-        const passedNumbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, -1);
+        // 【A. 修正】 從 0, -1 改為 0, MAX_PASSED_NUMBERS - 1
+        const passedNumbersRaw = await redis.lrange(KEY_PASSED_NUMBERS, 0, MAX_PASSED_NUMBERS - 1);
         const passedNumbers = passedNumbersRaw.map(Number);
         
-        // 從 List 讀取
         const featuredContentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
         const featuredContents = featuredContentsJSONs.map(JSON.parse);
 
@@ -316,7 +295,6 @@ io.on("connection", async (socket) => {
         const soundEnabledRaw = await redis.get(KEY_SOUND_ENABLED);
         const isSoundEnabled = soundEnabledRaw === null ? "1" : soundEnabledRaw;
 
-        // [發送] 將資料一次性發送給「剛連線的」客戶端
         socket.emit("update", currentNumber);
         socket.emit("updatePassed", passedNumbers);
         socket.emit("updateFeaturedContents", featuredContents);
@@ -329,7 +307,6 @@ io.on("connection", async (socket) => {
         socket.emit("initialStateError", "無法載入初始資料，請稍後重新整理。");
     }
     
-    // 僅為 Admin 增加斷線日誌 (可選)
     if (isAdmin) {
         socket.on("disconnect", (reason) => {
             console.log(`🔌 Admin ${socket.id} 斷線: ${reason}`);
