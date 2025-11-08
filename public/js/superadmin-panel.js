@@ -1,4 +1,4 @@
-// public/js/superadmin-panel.js (v3.3 修改版)
+// public/js/superadmin-panel.js (v3.7 修改版)
  
 document.addEventListener("DOMContentLoaded", () => {
     const userString = sessionStorage.getItem("currentUser");
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return data;
     };
  
-    // --- 2. 載入用戶列表 (v3.3 修改) ---
+    // --- 2. 載入用戶列表 (v3.7 修改) ---
  
     const renderUserList = (users) => {
         if (!userListBody) return;
@@ -105,16 +105,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 <option value="superadmin">Super Admin</option>
             `;
             roleSelect.value = user.role;
-            roleSelect.disabled = isCurrentUser;
+            roleSelect.disabled = isCurrentUser; // 仍不允許修改自己的角色
             
-            // 【v3.3】 新增一個 span 用於顯示反饋 (spinner/tick)
             const feedbackSpan = document.createElement("span");
             feedbackSpan.style.marginLeft = "10px";
             tdRole.appendChild(roleSelect);
             tdRole.appendChild(feedbackSpan);
             
             roleSelect.addEventListener("change", () => {
-                const oldRole = user.role; // 記住舊角色
+                const oldRole = user.role;
                 const newRole = roleSelect.value;
                 handleUpdateRole(user.username, newRole, roleSelect, feedbackSpan, oldRole);
             });
@@ -126,7 +125,10 @@ document.addEventListener("DOMContentLoaded", () => {
             changePwdButton.type = "button";
             changePwdButton.className = "btn-secondary btn-small";
             changePwdButton.textContent = "改密碼";
-            changePwdButton.disabled = isCurrentUser;
+            
+            // 【v3.7 修改】 移除此行，開放修改自己密碼
+            // changePwdButton.disabled = isCurrentUser; 
+            
             changePwdButton.onclick = () => showPasswordUI(tdPassword, user.username);
             tdPassword.appendChild(changePwdButton);
             tr.appendChild(tdPassword);
@@ -137,7 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
             deleteButton.type = "button";
             deleteButton.className = "btn-danger btn-small";
             deleteButton.textContent = "刪除";
-            deleteButton.disabled = isCurrentUser;
+            deleteButton.disabled = isCurrentUser; // 仍不允許刪除自己
             deleteButton.onclick = () => deleteUser(user.username);
             tdDelete.appendChild(deleteButton);
             tr.appendChild(tdDelete);
@@ -157,9 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
  
-    // --- 3. 刪除/修改用戶 (v3.3 修改) ---
-
-    // (showPasswordUI, handleUpdatePassword, deleteUser 不變)
+    // --- 3. 刪除/修改用戶 (v3.3, 不變) ---
     const showPasswordUI = (cell, username) => {
         const originalButton = cell.innerHTML;
         cell.innerHTML = "";
@@ -216,8 +216,6 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(`刪除失敗: ${err.message}`);
         }
     };
-
-    // 【v3.3 修改】 移除 confirm/alert，改用非同步反饋
     const handleUpdateRole = async (username, newRole, selectElement, feedbackElement, oldRole) => {
         
         selectElement.disabled = true;
@@ -227,16 +225,14 @@ document.addEventListener("DOMContentLoaded", () => {
             await apiRequest("/api/admin/users/update-role", "POST", { username, newRole });
             
             feedbackElement.innerHTML = "✅"; // Success
-            // 重新載入 user list (或只是更新當前 row)
             loadUsers(); 
         
         } catch (err) {
             feedbackElement.innerHTML = "❌"; // Fail
             alert(`變更角色失敗: ${err.message}`);
-            selectElement.value = oldRole; // 恢復原狀
+            selectElement.value = oldRole;
         
         } finally {
-            // 2 秒後清除反饋
             setTimeout(() => {
                 feedbackElement.innerHTML = "";
                 selectElement.disabled = false;
@@ -244,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
  
-    // --- 4. 建立用戶 (不變) ---
+    // --- 4. 建立用戶 (v3.5, 不變) ---
     const createUserInput = () => {
         const username = newUsernameInput.value.trim().toLowerCase();
         const password = newPasswordInput.value.trim();
