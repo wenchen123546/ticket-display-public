@@ -297,7 +297,12 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     .list-editor { padding: 10px; } 
      
     /* --- 【RWD 修正 v3】 (關鍵修復) --- */
-    /* 這是 RWD Bug 的關鍵，請確保此段存在 */
+    
+    /* 【v3.17】 新增此行，修復容器高度 */
+    .grid-stack-one-column-mode.grid-stack {
+        height: auto !important; /* 關鍵：移除 JS 計算的容器高度 */
+    }
+    
     .grid-stack-one-column-mode .grid-stack-item {
         height: auto !important; 
         position: relative !important; 
