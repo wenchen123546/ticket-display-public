@@ -54,34 +54,24 @@
     .user-info .role-superadmin { background: var(--color-danger); color: white; }
     .user-info .role-admin { background: var(--color-secondary); color: white; }
 
-    /* 【v3.5】 新增用戶區塊的樣式 */
+    /* v3.5 新增用戶區塊的樣式 (不變) */
     .add-user-section {
         border-top: 2px solid #eee;
         margin-top: 25px;
         padding-top: 20px;
     }
-    .add-user-section h4 {
-        margin-top: 0;
-        font-size: 1.3rem;
-        font-weight: bold;
-        margin-bottom: 20px;
-    }
-    .add-user-section .control-group {
-        align-items: flex-start; /* 標籤靠左 */
-    }
-    .add-user-section .control-group label {
-        text-align: left; /* 標籤靠左 */
-    }
-    .add-user-section .control-group input,
-    .add-user-section .control-group select {
-        text-align: left; /* 輸入框文字靠左 */
-        padding-left: 10px;
-    }
-    .add-user-section select {
-         width: 100%; 
-         padding: 8px; 
-         font-size: 1.1rem; 
-         margin-top: 10px; 
+    
+    /* 【v3.10】 確保 <select> 在 input-group 中也能正常排版 */
+    .input-group select {
+        flex: 1; 
+        min-width: 150px; 
+        margin: 5px; 
+        max-width: 100%;
+        font-size: 1.1rem;
+        padding: 8px;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        box-sizing: border-box;
     }
 
 </style>
@@ -139,25 +129,23 @@
          </div>
 
          <div class="add-user-section">
-            <h4><span class="card-icon">➕</span> 建立新用戶</h4>
             
-            <div class="control-group">
-                <label for="new-username">新用戶帳號 (可中文)</label>
-                <input type="text" id="new-username" placeholder="例如: user_a 或 王大明">
-            </div>
-            <div class="control-group">
-                <label for="new-password">新用戶密碼 (至少 8 字元)</label>
-                <input type="password" id="new-password" placeholder="密碼 (至少 8 字元)">
-            </div>
-            <div class="control-group">
-                <label for="new-role">指派角色</label>
-                <select id="new-role">
+            <label style="display: block; font-size: 1.1rem; color: var(--color-text); margin-bottom: 8px; font-weight: bold; text-align: left;">
+                建立新用戶
+            </label>
+            
+            <div class="input-group">
+                <input type="text" id="new-username" placeholder="新用戶帳號 (可中文)">
+                <input type="password" id="new-password" placeholder="密碼 (8+ 字元)">
+                <select id="new-role" title="指派角色">
                     <option value="admin" selected>管理員 (Admin)</option>
                     <option value="superadmin">超級管理員 (Super Admin)</option>
                 </select>
+                
+                <button id="create-user-button" type="button" class="btn-add">+</button>
             </div>
-            <button id="create-user-button" type="button" class="btn-success">建立用戶</button>
-            <p id="create-error" style="color: var(--color-danger);"></p>
+            
+            <p id="create-error" style="color: var(--color-danger); text-align: left; margin-top: 10px;"></p>
          </div>
 
     </div>
