@@ -1,4 +1,4 @@
-// public/js/login.js
+// public/js/login.js (v3.0 / v3.17)
  
 document.addEventListener("DOMContentLoaded", () => {
     const usernameInput = document.getElementById("username-input");
@@ -34,10 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
  
             // 登入成功！
             
-            // 【v3.0 修改】 不再儲存 Token (它在 Cookie 中)
-            // sessionStorage.setItem("jwtToken", data.token);
-            
-            // 【v3.0 修改】 儲存伺服器回傳的 user 物件，供前端判斷權限
+            // 【v3.0】 儲存伺服器回傳的 user 物件
             sessionStorage.setItem("currentUser", JSON.stringify(data.user));
             
             // 轉跳到「主儀表板」
