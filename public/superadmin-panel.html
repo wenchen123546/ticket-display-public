@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>超級管理員面板</title>
-<link rel="stylesheet" href="/css/admin.css?v=8"> <style>
+<link rel="stylesheet" href="/css/admin.css?v=12"> <style>
     /* 針對此頁面的一些微調 */
     body { padding-top: 30px; }
     #panel-container { max-width: 900px; margin: 0 auto; }
@@ -36,7 +36,6 @@
     .user-info .role-superadmin { background: var(--color-danger); color: white; }
     .user-info .role-admin { background: var(--color-secondary); color: white; }
     
-    /* 【v2.2 新增】 按鈕容器 */
     .user-list-controls {
         display: flex;
         gap: 10px; /* 按鈕間距 */
@@ -52,9 +51,30 @@
 <body>
 
 <div id="panel-container">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <h1>超級管理員面板</h1>
-        <button id="logout-button" type="button" class="btn-warn" style="width: auto; min-width: 100px;">登出</button>
+        
+        <div class="header-buttons" style="display: flex; gap: 10px;">
+            
+            <a href="/admin.html" id="return-to-admin-btn" 
+               class="btn-secondary" 
+               style="width: auto; min-width: 100px; margin: 0; 
+                      /* --- 手動套用按鈕樣式 --- */
+                      font-size: 1.2rem; 
+                      padding: 10px 20px; 
+                      border: none;
+                      border-radius: 8px; 
+                      cursor: pointer; 
+                      color: white; 
+                      text-decoration: none; 
+                      text-align: center;
+                      background-color: var(--color-secondary);">
+               返回儀表板
+            </a>
+            
+            <button id="logout-button" type="button" class="btn-warn" style="width: auto; min-width: 100px; margin: 0;">登出</button>
+        </div>
     </div>
     <p id="welcome-message" style="text-align: left; font-size: 1.2rem;">正在載入...</p>
 
@@ -93,5 +113,6 @@
     </div>
 </div>
 
-<script src="/js/superadmin-panel.js?v=2"></script> </body>
+<script src="/js/superadmin-panel.js?v=3"></script> 
+</body>
 </html>
