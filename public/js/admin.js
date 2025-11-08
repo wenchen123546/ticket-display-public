@@ -14,17 +14,19 @@ const newLinkTextInput = document.getElementById("new-link-text");
 const newLinkUrlInput = document.getElementById("new-link-url");
 const addFeaturedBtn = document.getElementById("add-featured-btn");
 const soundToggle = document.getElementById("sound-toggle");
-const publicToggle = document.getElementById("public-toggle"); // 【新功能】
+const publicToggle = document.getElementById("public-toggle"); 
 const adminLogUI = document.getElementById("admin-log-ui");
 const clearLogBtn = document.getElementById("clear-log-btn");
 const resetAllBtn = document.getElementById("resetAll");
 const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
+const saveLayoutBtn = document.getElementById("save-layout-btn"); // 【新】
 
 // --- 2. 全域變數 ---
 let token = "";
 let resetAllTimer = null;
+let grid = null; // 【新】 GridStack 物件
 
-// --- 3. Socket.io (【B. 已修改】) ---
+// --- 3. Socket.io ---
 const socket = io({ 
     autoConnect: false,
     auth: {
@@ -32,19 +34,43 @@ const socket = io({
     }
 });
 
-// --- 4. 登入/顯示邏輯 (【B. 已修改】) ---
+// --- 4. 登入/顯示邏輯 ---
 function showLogin() {
     loginContainer.style.display = "block";
     adminPanel.style.display = "none";
     document.title = "後台管理 - 登入";
     socket.disconnect();
 }
+
+// 【修改】 showPanel 函式
 function showPanel() {
     loginContainer.style.display = "none";
     adminPanel.style.display = "block";
     document.title = "後台管理 - 控制台";
     socket.connect();
+
+    // 【新】 在顯示 Panel 時，初始化 GridStack
+    // 延遲 100ms 確保元素已渲染
+    setTimeout(() => {
+        // (您可以在這裡從 Redis 載入 'savedLayout')
+        // const savedLayout = ... ; 
+
+        grid = GridStack.init({
+            column: 12, // 12 欄網格
+            cellHeight: 'auto', // 自動高度
+            margin: 10,         // 卡片間距 10px
+            minRow: 1,          // 最小 1 列
+            // disableOneColumnMode: true, // 可選：在手機上保持多欄
+            float: true,      // 允許卡片浮動 (自動填滿空隙)
+            removable: false,   // 不允許移除卡片
+            alwaysShowResizeHandle: 'mobile' // 在手機上總是顯示縮放柄
+        });
+        
+        // (如果您有載入 savedLayout, 則使用 grid.load(savedLayout))
+        
+    }, 100); 
 }
+
 async function checkToken(tokenToCheck) {
     if (!tokenToCheck) return false;
     try {
@@ -65,7 +91,7 @@ async function attemptLogin(tokenToCheck) {
     if (isValid) {
         token = tokenToCheck;
         socket.auth.token = tokenToCheck;
-        showPanel();
+        showPanel(); // <-- GridStack 會在這裡被初始化
     } else {
         loginError.textContent = "密碼錯誤";
         showLogin();
@@ -89,7 +115,7 @@ function adminLog(message) {
     adminLogUI.scrollTop = adminLogUI.scrollHeight;
 }
 
-// --- 6. 控制台 Socket 監聽器 (【D. 已修改】) ---
+// --- 6. 控制台 Socket 監聽器 ---
 socket.on("connect", () => {
     console.log("Socket.io 已連接");
     statusBar.classList.remove("visible");
@@ -108,35 +134,28 @@ socket.on("connect_error", (err) => {
         showLogin();
     }
 });
-
 socket.on("update", (num) => {
     numberEl.textContent = num;
     adminLog(`號碼更新為 ${num}`);
 });
-
 socket.on("updatePassed", (numbers) => {
     renderPassedListUI(numbers);
     adminLog("過號列表已更新");
 });
-
 socket.on("updateFeaturedContents", (contents) => {
     renderFeaturedListUI(contents);
     adminLog("精選連結已更新");
 });
-
 socket.on("updateSoundSetting", (isEnabled) => {
     console.log("收到音效設定:", isEnabled);
     soundToggle.checked = isEnabled;
     adminLog(`音效已設為 ${isEnabled ? '開啟' : '關閉'}`);
 });
-
-// 【新功能】 監聽公開狀態
 socket.on("updatePublicStatus", (isPublic) => {
     console.log("收到公開狀態:", isPublic);
     publicToggle.checked = isPublic;
     adminLog(`前台已設為 ${isPublic ? '對外開放' : '關閉維護'}`);
 });
-
 socket.on("updateTimestamp", (timestamp) => {
     console.log("Timestamp updated:", timestamp);
 });
@@ -168,7 +187,7 @@ async function apiRequest(endpoint, body) {
     }
 }
 
-// --- 8. GUI 渲染函式 (【D. 已修改】 + 【優化 2】) ---
+// --- 8. GUI 渲染函式 ---
 function renderPassedListUI(numbers) {
     passedListUI.innerHTML = ""; 
     if (!Array.isArray(numbers)) return;
@@ -192,7 +211,6 @@ function renderPassedListUI(numbers) {
     });
     passedListUI.appendChild(fragment);
 }
-
 function renderFeaturedListUI(contents) {
     featuredListUI.innerHTML = "";
     if (!Array.isArray(contents)) return;
@@ -232,8 +250,6 @@ async function setNumber() {
         document.getElementById("manualNumber").value = "";
     }
 }
-
-// --- 重置功能 ---
 async function resetNumber() {
     if (!confirm("確定要將「目前號碼」重置為 0 嗎？")) return;
     const success = await apiRequest("/set-number", { number: 0 });
@@ -242,7 +258,6 @@ async function resetNumber() {
         alert("號碼已重置為 0。");
     }
 }
-
 async function resetPassed_fixed() {
     if (!confirm("確定要清空「已叫號碼(過號)」列表嗎？")) return;
     adminLog("正在清空過號列表...");
@@ -253,7 +268,6 @@ async function resetPassed_fixed() {
         adminLog("❌ 清空過號列表失敗");
     }
 }
-
 async function resetFeaturedContents_fixed() {
     if (!confirm("確定要清空「精選連結」嗎？")) return;
     adminLog("正在清空精選連結...");
@@ -264,8 +278,6 @@ async function resetFeaturedContents_fixed() {
         adminLog("❌ 清空精選連結失敗");
     }
 }
-
-// --- ResetAll 防呆機制 ---
 function cancelResetAll() {
     resetAllConfirmBtn.style.display = "none";
     resetAllBtn.style.display = "block";
@@ -304,16 +316,13 @@ function clearAdminLog() {
 document.getElementById("next").onclick = () => changeNumber("next");
 document.getElementById("prev").onclick = () => changeNumber("prev");
 document.getElementById("setNumber").onclick = setNumber;
-
 document.getElementById("resetNumber").onclick = resetNumber;
 document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents_fixed;
 document.getElementById("resetPassed").onclick = resetPassed_fixed;
-
 resetAllBtn.onclick = requestResetAll;
 resetAllConfirmBtn.onclick = confirmResetAll;
 clearLogBtn.onclick = clearAdminLog;
 
-// --- (GUI Add 按鈕綁定) ---
 addPassedBtn.onclick = async () => {
     const num = Number(newPassedNumberInput.value);
     if (num <= 0 || !Number.isInteger(num)) {
@@ -327,7 +336,6 @@ addPassedBtn.onclick = async () => {
     }
     addPassedBtn.disabled = false;
 };
-
 addFeaturedBtn.onclick = async () => {
     const text = newLinkTextInput.value.trim();
     const url = newLinkUrlInput.value.trim();
@@ -361,15 +369,40 @@ soundToggle.addEventListener("change", () => {
     const isEnabled = soundToggle.checked;
     apiRequest("/set-sound-enabled", { enabled: isEnabled });
 });
-
-// 【新功能】 綁定公開狀態開關
 publicToggle.addEventListener("change", () => {
     const isPublic = publicToggle.checked;
     if (!isPublic) {
-        if (!confirm("確定要關閉前台嗎？\n所有使用者將會看到「維護中」畫面。")) {
-            publicToggle.checked = true; // 取消操作，恢復勾選
+        if (!confirm("確定要關閉前台嗎？\n所有使用者將會看到「維HUD」畫面。")) {
+            publicToggle.checked = true; 
             return;
         }
     }
     apiRequest("/set-public-status", { isPublic: isPublic });
 });
+
+// --- 13. 【新】 綁定 GridStack 儲存按鈕 ---
+if (saveLayoutBtn) {
+    saveLayoutBtn.addEventListener("click", () => {
+        if (!grid) return;
+        
+        // 儲存目前的排版
+        const layout = grid.save();
+        
+        // 轉換為更易讀的格式 (可選)
+        const serializedData = layout.map(item => ({
+            id: item.id, // (我們需要為卡片加上 ID 才能有效儲存)
+            x: item.x, 
+            y: item.y, 
+            w: item.w, 
+            h: item.h 
+        }));
+
+        adminLog("✅ 排版已儲存 (顯示於主控台)");
+        console.log("排版資料 (請將此資料儲存到 Redis):", JSON.stringify(serializedData, null, 2));
+        
+        alert("排版資料已印在 F12 主控台。\n您需要建立一個 API 將此資料儲存到 Redis 中。");
+        
+        // 【下一步】:
+        // await apiRequest("/api/layout/save", { layout: serializedData });
+    });
+}
