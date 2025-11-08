@@ -13,7 +13,7 @@
     --color-secondary: #8b5cf6;
     --color-cyan: #0891b2;
     --color-neutral: #71717a;
-    --color-superadmin: #4a5568; /* 【新】 超管按鈕顏色 */
+    --color-superadmin: #4a5568; 
     --color-border: #ccc;
     --color-log-bg: #2d3748;
     --color-log-text: #e2e8f0;
@@ -151,7 +151,7 @@ body {
 /* --- 3. 按鈕 & 輸入框 --- */
 
 button,
-a.btn-superadmin { /* 【新】 讓 a 標籤也套用按鈕樣式 */
+a.btn-superadmin { 
     font-size: 1.2rem; 
     padding: 10px 20px; 
     margin: 10px 5px; 
@@ -162,8 +162,8 @@ a.btn-superadmin { /* 【新】 讓 a 標籤也套用按鈕樣式 */
     min-width: 120px; 
     width: 100%; 
     box-sizing: border-box;
-    text-decoration: none; /* (針對 a 標籤) */
-    text-align: center; /* (針對 a 標籤) */
+    text-decoration: none; 
+    text-align: center; 
 }
 button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
 .control-group.button-row button { 
@@ -262,7 +262,7 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 .btn-secondary { background-color: var(--color-secondary); }
 .btn-cyan { background-color: var(--color-cyan); }
 .btn-add { background-color: var(--color-success); }
-.btn-superadmin { background-color: var(--color-superadmin); } /* 【新】 */
+.btn-superadmin { background-color: var(--color-superadmin); } 
 
 #prev { background-color: var(--color-warning); }
 #next { background-color: var(--color-success); }
@@ -300,6 +300,16 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     #admin-panel h1 { font-size: 2.2rem; } 
     #number { font-size: 4rem; } 
     .list-editor { padding: 10px; } 
+    
+    /* * --- 【RWD 修正】 GridStack 手機版高度修正 ---
+     * 當 GridStack 進入單欄模式時，
+     * 我們必須強制覆蓋 gs-h 計算出的高度 (height: 100%)，
+     * 改為 height: auto，讓內容自然撐開。
+     */
+    .grid-stack-one-column-mode .grid-stack-item-content,
+    .grid-stack-one-column-mode .grid-stack-item-content .admin-card {
+        height: auto !important;
+    }
 }
 
 /* --- 8. 連線狀態提示條 --- */
@@ -408,7 +418,7 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     opacity: 0;
     transform: translateY(-20px);
     transition: opacity 0.3s ease, transform 0.3s ease;
-    pointer-events: none; /* 讓 toast 不會擋到滑鼠 */
+    pointer-events: none; 
 }
 #toast-notification.show {
     opacity: 1;
