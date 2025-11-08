@@ -1,4 +1,4 @@
-// public/js/superadmin.js
+// public/js/login.js
 
 document.addEventListener("DOMContentLoaded", () => {
     const usernameInput = document.getElementById("username-input");
@@ -36,14 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
             // 1. 儲存 JWT Token
             localStorage.setItem("jwtToken", data.token);
             
-            // 2. 檢查是否為 Super Admin
-            if (data.user.role !== 'superadmin') {
-                throw new Error("登入成功，但您不是超級管理員。");
-            }
+            // 2. 【修改】 移除 Super Admin 檢查
 
-            // 3. 轉跳到管理面板
+            // 3. 【修改】 轉跳到「主儀表板」 (admin.html)
             loginError.textContent = "✅ 登入成功，正在轉跳...";
-            window.location.href = "/superadmin-panel.html"; // 轉跳到新的面板頁面
+            window.location.href = "/admin.html"; // <-- 轉跳到 GridStack 儀表板
 
         } catch (err) {
             loginButton.disabled = false;
