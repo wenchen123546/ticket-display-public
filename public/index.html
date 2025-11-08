@@ -19,25 +19,50 @@ src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></scri
          <h1>💉系統維護中🩸</h1>
          <p>目前暫停服務，請稍後再試。</p>
     </div>
+ 
+    <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
+    <audio id="notify-sound" src="/ding.mp3" preload="auto"></audio>
+ 
+    <div class="top-header">
+         <h1>💉熱血不宜攔！🩸</h1>
+         <p id="last-updated">正在連線...</p>
+    </div>
+     
+    <div class="content-wrapper">
+         
+         <div class="card" id="current-number-card">
+             <h2>目前號碼</h2>
+             <p id="number">0</p>
+         </div>
+ 
+         <div class="card" id="passed-container">
+             <h3>已過號</h3>
+             <ul id="passedList">
+             </ul>
+             <p id="passed-empty-msg" class="empty-state-message">目前尚無過號</p>
+         </div>
+ 
+    </div> 
+     
+    <div class="utility-buttons">
+         <div id="copy-link-prompt">
+             <span class="emoji">🔗</span> 點此複製網頁連結
+         </div>
+         <div id="sound-prompt" style="display: none;">
+             <span class="emoji">🔊</span> 點此啟用提示音效
+         </div>
+    </div>
+ 
+    <div id="featured-container">
+         <p id="featured-empty-msg" class="empty-state-message">暫無精選連結</p>
+    </div>
+ 
     <div id="qr-code-container">
-        <div id="qr-code-placeholder"></div>
-        <p>掃描查看進度</p>
+         <div id="qr-code-placeholder"></div>
+         <p>掃描查看進度</p>
     </div>
  
     <script src="/js/main.js?v=15"></script>
 
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('✅ Service Worker 註冊成功, 範圍:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.error('❌ Service Worker 註冊失敗:', error);
-                    });
-            });
-        }
-    </script>
-</body>
+    </body>
 </html>
