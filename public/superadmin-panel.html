@@ -61,7 +61,7 @@
         padding-top: 20px;
     }
     
-    /* 【v3.10】 確保 <select> 在 input-group 中也能正常排版 */
+    /* v3.10 (不變) */
     .input-group select {
         flex: 1; 
         min-width: 150px; 
@@ -136,7 +136,9 @@
             
             <div class="input-group">
                 <input type="text" id="new-username" placeholder="新用戶帳號 (可中文)">
-                <input type="password" id="new-password" placeholder="密碼 (8+ 字元)">
+                
+                <input type="password" id="new-password" placeholder="密碼">
+                
                 <select id="new-role" title="指派角色">
                     <option value="admin" selected>管理員 (Admin)</option>
                     <option value="superadmin">超級管理員 (Super Admin)</option>
