@@ -1,10 +1,9 @@
 // public/js/superadmin-panel.js
 
 document.addEventListener("DOMContentLoaded", () => {
-    // 【需求 2 修正】 讀取後立刻銷毀 Token
-    const token = localStorage.getItem("jwtToken");
-    localStorage.removeItem("jwtToken"); // <-- 關鍵！
-    sessionStorage.removeItem("jwtToken"); // (順便清除 session)
+    // 【v2.3 修正】 從 sessionStorage 讀取
+    const token = sessionStorage.getItem("jwtToken");
+    // 【v2.3 修正】 移除 removeItem
 
     const welcomeMessage = document.getElementById("welcome-message");
     const userListContainer = document.getElementById("user-list-container");
@@ -39,14 +38,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } catch (e) {
         console.error("解碼 Token 失敗:", e);
-        // (移除 localStorage.removeItem，因為上面已經做過了)
+        sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
         window.location.href = "/login.html";
         return;
     }
 
     logoutButton.addEventListener("click", () => {
         if (confirm("確定要登出嗎？")) {
-            // (移除 localStorage.removeItem，因為 token 已經不在了)
+            sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
             window.location.href = "/login.html";
         }
     });
@@ -54,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const apiRequest = async (endpoint, method = "POST", body = null) => {
         const headers = {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}` // 使用記憶體中的 Token
+            "Authorization": `Bearer ${token}` 
         };
 
         const config = { method, headers };
@@ -67,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
-                // (移除 localStorage.removeItem)
+                sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
                 alert("您的登入已過期，請重新登入。");
                 window.location.href = "/login.html";
             }
