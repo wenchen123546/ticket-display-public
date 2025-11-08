@@ -16,38 +16,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- 1. 驗證與 API 請求 ---
 
-    // 檢查 Token 是否存在
     if (!token) {
         alert("您尚未登入，將轉跳至登入頁面。");
-        window.location.href = "/superadmin.html";
+        window.location.href = "/login.html"; // 改為統一登入頁
         return;
     }
 
-    // 解碼 JWT (簡易版) 來取得使用者名稱
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         currentUser = payload;
         welcomeMessage.textContent = `歡迎， ${currentUser.username} (${currentUser.role})！`;
+
+        // 【v2.2 修正】 如果不是 Super Admin，踢回儀表板
+        if (currentUser.role !== 'superadmin') {
+            alert("權限不足。您將被導向回主儀表板。");
+            window.location.href = "/admin.html";
+            return;
+        }
+
     } catch (e) {
         console.error("解碼 Token 失敗:", e);
         localStorage.removeItem("jwtToken");
-        window.location.href = "/superadmin.html";
+        window.location.href = "/login.html";
         return;
     }
 
-    // 登出按鈕
     logoutButton.addEventListener("click", () => {
         if (confirm("確定要登出嗎？")) {
             localStorage.removeItem("jwtToken");
-            window.location.href = "/superadmin.html";
+            window.location.href = "/login.html";
         }
     });
 
-    // 帶有 JWT 的 API 請求
     const apiRequest = async (endpoint, method = "POST", body = null) => {
         const headers = {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}` // 關鍵：使用 JWT
+            "Authorization": `Bearer ${token}` 
         };
 
         const config = { method, headers };
@@ -59,11 +63,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await res.json();
 
         if (!res.ok) {
-            // 如果 Token 過期 (401)，自動登出
             if (res.status === 401) {
                 localStorage.removeItem("jwtToken");
                 alert("您的登入已過期，請重新登入。");
-                window.location.href = "/superadmin.html";
+                window.location.href = "/login.html";
             }
             throw new Error(data.error || "API 請求失敗");
         }
@@ -94,21 +97,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
             item.appendChild(info);
 
+            // 【v2.2 新增】 按鈕容器
+            const controls = document.createElement("div");
+            controls.className = "user-list-controls";
+
             // 超級管理員不能刪除自己
             if (user.username !== currentUser.username) {
+                // 【v2.2 新增】 改密碼按鈕
+                const changePwdButton = document.createElement("button");
+                changePwdButton.type = "button";
+                changePwdButton.className = "btn-secondary";
+                changePwdButton.textContent = "改密碼";
+                changePwdButton.onclick = () => updatePassword(user.username);
+                controls.appendChild(changePwdButton);
+                
+                // 刪除按鈕
                 const deleteButton = document.createElement("button");
                 deleteButton.type = "button";
                 deleteButton.className = "btn-danger";
                 deleteButton.textContent = "刪除";
-                deleteButton.style.width = "auto";
-                deleteButton.style.minWidth = "80px";
-                deleteButton.style.fontSize = "0.9rem";
-                
                 deleteButton.onclick = () => deleteUser(user.username);
-                
-                item.appendChild(deleteButton);
+                controls.appendChild(deleteButton);
             }
 
+            item.appendChild(controls);
             userListContainer.appendChild(item);
         });
     };
@@ -122,7 +134,27 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    // --- 3. 刪除用戶 ---
+    // --- 3. 刪除/修改用戶 ---
+
+    // 【v2.2 新增】 修改密碼
+    const updatePassword = async (username) => {
+        const newPassword = prompt(`請為用戶 "${username}" 輸入一個新密碼：\n(至少 8 個字元)`);
+
+        if (!newPassword) {
+            return; // User cancelled
+        }
+        if (newPassword.length < 8) {
+            alert("密碼長度至少需 8 個字元。");
+            return;
+        }
+
+        try {
+            const data = await apiRequest("/api/admin/users/update-password", "POST", { username, newPassword });
+            alert(data.message || `用戶 ${username} 的密碼已成功更新。`);
+        } catch (err) {
+            alert(`更新密碼失敗: ${err.message}`);
+        }
+    };
 
     const deleteUser = async (username) => {
         if (!confirm(`確定要永久刪除用戶 "${username}" 嗎？\n此動作無法復原！`)) {
