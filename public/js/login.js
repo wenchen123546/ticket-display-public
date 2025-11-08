@@ -33,14 +33,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             // 登入成功！
-            // 1. 儲存 JWT Token
-            localStorage.setItem("jwtToken", data.token);
+            // 【v2.3 修正】 使用 sessionStorage
+            sessionStorage.setItem("jwtToken", data.token);
             
-            // 2. 【修改】 移除 Super Admin 檢查
-
-            // 3. 【修改】 轉跳到「主儀表板」 (admin.html)
+            // 轉跳到「主儀表板」
             loginError.textContent = "✅ 登入成功，正在轉跳...";
-            window.location.href = "/admin.html"; // <-- 轉跳到 GridStack 儀表板
+            window.location.href = "/admin.html"; 
 
         } catch (err) {
             loginButton.disabled = false;
