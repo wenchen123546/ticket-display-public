@@ -296,7 +296,7 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     #number { font-size: 4rem; } 
     .list-editor { padding: 10px; } 
      
-    /* --- 【RWD 修正 v3】 (關鍵修復) --- */
+    /* --- 【RWD 修正 v3.17】 (關鍵修復) --- */
     
     /* 【v3.17】 新增此行，修復容器高度 */
     .grid-stack-one-column-mode.grid-stack {
