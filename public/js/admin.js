@@ -19,12 +19,12 @@ const adminLogUI = document.getElementById("admin-log-ui");
 const clearLogBtn = document.getElementById("clear-log-btn");
 const resetAllBtn = document.getElementById("resetAll");
 const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
-const saveLayoutBtn = document.getElementById("save-layout-btn"); // 【新】
+const saveLayoutBtn = document.getElementById("save-layout-btn"); 
 
 // --- 2. 全域變數 ---
 let token = "";
 let resetAllTimer = null;
-let grid = null; // 【新】 GridStack 物件
+let grid = null; // GridStack 物件
 
 // --- 3. Socket.io ---
 const socket = io({ 
@@ -42,32 +42,44 @@ function showLogin() {
     socket.disconnect();
 }
 
-// 【修改】 showPanel 函式
-function showPanel() {
+// 【修改】 showPanel 函式，改為 async
+async function showPanel() {
     loginContainer.style.display = "none";
     adminPanel.style.display = "block";
     document.title = "後台管理 - 控制台";
     socket.connect();
 
-    // 【新】 在顯示 Panel 時，初始化 GridStack
+    // 【新】 在初始化 GridStack 之前，先載入儲存的排版
+    let savedLayout = null;
+    try {
+        adminLog("正在讀取儀表板排版...");
+        const response = await apiRequest("/api/layout/load", {}, true); // true = 需要回傳資料
+        if (response && response.layout) {
+            savedLayout = response.layout;
+            adminLog("✅ 成功讀取已儲存的排版");
+        } else {
+            adminLog("ℹ️ 找不到已儲存的排版，使用預設排版");
+        }
+    } catch (e) {
+        adminLog(`❌ 讀取排版失敗: ${e.message}`);
+    }
+
     // 延遲 100ms 確保元素已渲染
     setTimeout(() => {
-        // (您可以在這裡從 Redis 載入 'savedLayout')
-        // const savedLayout = ... ; 
-
         grid = GridStack.init({
-            column: 12, // 12 欄網格
-            cellHeight: 'auto', // 自動高度
-            margin: 10,         // 卡片間距 10px
-            minRow: 1,          // 最小 1 列
-            // disableOneColumnMode: true, // 可選：在手機上保持多欄
-            float: true,      // 允許卡片浮動 (自動填滿空隙)
-            removable: false,   // 不允許移除卡片
-            alwaysShowResizeHandle: 'mobile' // 在手機上總是顯示縮放柄
+            column: 12, 
+            cellHeight: 'auto', 
+            margin: 10,         
+            minRow: 1,          
+            float: true,      
+            removable: false,   
+            alwaysShowResizeHandle: 'mobile' 
         });
         
-        // (如果您有載入 savedLayout, 則使用 grid.load(savedLayout))
-        
+        // 【新】 如果有儲存的排版，就載入它
+        if (savedLayout) {
+            grid.load(savedLayout);
+        }
     }, 100); 
 }
 
@@ -91,7 +103,7 @@ async function attemptLogin(tokenToCheck) {
     if (isValid) {
         token = tokenToCheck;
         socket.auth.token = tokenToCheck;
-        showPanel(); // <-- GridStack 會在這裡被初始化
+        await showPanel(); // <-- GridStack 會在這裡被初始化
     } else {
         loginError.textContent = "密碼錯誤";
         showLogin();
@@ -119,7 +131,7 @@ function adminLog(message) {
 socket.on("connect", () => {
     console.log("Socket.io 已連接");
     statusBar.classList.remove("visible");
-    adminLog("✅ 成功連線到伺服器");
+    // (移除這裡的 "成功連線" 日誌，改由 showPanel 載入排版後顯示)
 });
 socket.on("disconnect", () => {
     console.warn("Socket.io 已斷線");
@@ -161,25 +173,34 @@ socket.on("updateTimestamp", (timestamp) => {
 });
 
 // --- 7. API 請求函式 ---
-async function apiRequest(endpoint, body) {
+// 【修改】 增加 a_returnResponse 參數以處理回傳資料
+async function apiRequest(endpoint, body, a_returnResponse = false) {
     try {
         const res = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...body, token }),
         });
+        
+        const responseData = await res.json(); // 先解析 JSON
+
         if (!res.ok) {
-            const errorData = await res.json();
             if (res.status === 403) {
                 alert("密碼驗證失敗或 Token 已過期，請重新登入。");
                 showLogin();
             } else {
-                adminLog(`❌ API 錯誤 (${endpoint}): ${errorData.error || "未知錯誤"}`);
-                alert("發生錯誤：" + (errorData.error || "未知錯誤"));
+                adminLog(`❌ API 錯誤 (${endpoint}): ${responseData.error || "未知錯誤"}`);
+                alert("發生錯誤：" + (responseData.error || "未知錯誤"));
             }
             return false;
         }
-        return true;
+
+        // 如果請求成功
+        if (a_returnResponse) {
+            return responseData; // 回傳完整的 JSON 資料
+        }
+        
+        return true; // 預設回傳 true
     } catch (err) {
         adminLog(`❌ 網路連線失敗: ${err.message}`);
         alert("網路連線失敗或伺服器無回應：" + err.message);
@@ -293,6 +314,8 @@ async function confirmResetAll() {
         document.getElementById("manualNumber").value = "";
         alert("已全部重置。");
         adminLog("✅ 所有資料已重置");
+        // 重置後強制重載頁面，以載入預設排版
+        location.reload();
     } else {
         adminLog("❌ 重置失敗");
     }
@@ -372,7 +395,7 @@ soundToggle.addEventListener("change", () => {
 publicToggle.addEventListener("change", () => {
     const isPublic = publicToggle.checked;
     if (!isPublic) {
-        if (!confirm("確定要關閉前台嗎？\n所有使用者將會看到「維HUD」畫面。")) {
+        if (!confirm("確定要關閉前台嗎？\n所有使用者將會看到「維護中」畫面。")) {
             publicToggle.checked = true; 
             return;
         }
@@ -380,29 +403,33 @@ publicToggle.addEventListener("change", () => {
     apiRequest("/set-public-status", { isPublic: isPublic });
 });
 
-// --- 13. 【新】 綁定 GridStack 儲存按鈕 ---
+// --- 13. 【修改】 綁定 GridStack 儲存按鈕 ---
 if (saveLayoutBtn) {
-    saveLayoutBtn.addEventListener("click", () => {
+    saveLayoutBtn.addEventListener("click", async () => {
         if (!grid) return;
         
         // 儲存目前的排版
-        const layout = grid.save();
-        
-        // 轉換為更易讀的格式 (可選)
-        const serializedData = layout.map(item => ({
-            id: item.id, // (我們需要為卡片加上 ID 才能有效儲存)
+        // 我們使用 grid.save(true) 來只儲存卡片 (不含內容)
+        // 並使用 map 來確保我們只儲存必要的資訊 (id, x, y, w, h)
+        const layoutData = grid.save(false).map(item => ({
+            id: item.id,
             x: item.x, 
             y: item.y, 
             w: item.w, 
             h: item.h 
         }));
 
-        adminLog("✅ 排版已儲存 (顯示於主控台)");
-        console.log("排版資料 (請將此資料儲存到 Redis):", JSON.stringify(serializedData, null, 2));
+        adminLog("正在儲存排版到 Redis...");
+        console.log("正在儲存:", JSON.stringify(layoutData, null, 2));
+
+        // 呼叫新的 API 來儲存
+        const success = await apiRequest("/api/layout/save", { layout: layoutData });
         
-        alert("排版資料已印在 F12 主控台。\n您需要建立一個 API 將此資料儲存到 Redis 中。");
-        
-        // 【下一步】:
-        // await apiRequest("/api/layout/save", { layout: serializedData });
+        if (success) {
+            adminLog("✅ 排版已成功儲存！");
+            alert("儀表板排版已儲存。");
+        } else {
+            adminLog("❌ 儲存排版失敗。");
+        }
     });
 }
