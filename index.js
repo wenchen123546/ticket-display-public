@@ -2,14 +2,12 @@
  * ==========================================
  * 伺服器 (index.js)
  * ... (舊註解) ...
- * * 11. 【v2 統一】
- * * - 移除 v1 的 authMiddleware
- * * - 將所有 API 路由 (包含 v1 路由) 全部改為使用 jwtAuthMiddleware
- * * - 移除舊的 ADMIN_TOKEN 檢查
  * * 12. 【v2.1 修正】
  * * - 修正 bcrypt 儲存 (password -> passwordHash)
  * * - 修正 bcrypt 讀取 (user.password -> user.passwordHash)
  * * - 增加啟動時自動修復超級管理員帳號的功能
+ * * 13. 【v2.2 功能】
+ * * - 新增「超級管理員修改用戶密碼」的 API
  * ==========================================
  */
 
@@ -30,14 +28,12 @@ const io = socketio(server);
 
 // --- 3. 核心設定 & 安全性 ---
 const PORT = process.env.PORT || 3000;
-// const ADMIN_TOKEN = process.env.ADMIN_TOKEN; // 【v2 移除】 不再使用
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
 const SUPER_ADMIN_USERNAME = process.env.SUPER_ADMIN_USERNAME;
 const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD;
 
 // --- 4. 關鍵檢查 ---
-// 【v2 移除】 ADMIN_TOKEN 檢查
 if (!REDIS_URL) {
     console.error("❌ 錯誤： UPSTASH_REDIS_URL 環境變數未設定！");
     process.exit(1);
@@ -112,7 +108,6 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-// 【v2 統一】 JWT 驗證中介軟體
 const jwtAuthMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -128,7 +123,6 @@ const jwtAuthMiddleware = (req, res, next) => {
     }
 };
 
-// 【v2 統一】 超級管理員檢查中介軟體
 const superAdminCheckMiddleware = (req, res, next) => {
     if (req.user && req.user.role === 'superadmin') {
         next();
@@ -182,7 +176,6 @@ async function addAdminLog(message, actor = "系統") {
 
 // --- 9. API 路由 (Routes) ---
 
-// 【v2 統一】 登入 API - 不需驗證，但有速率限制
 app.post("/api/auth/login", loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -195,13 +188,11 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
         }
         const user = JSON.parse(userJSON);
 
-        // 【v2.1 修正】 必須要有 passwordHash 才能比較
         if (!user.passwordHash) {
             console.error(`❌ 安全錯誤：用戶 ${username} 的資料庫中沒有 passwordHash！`);
             return res.status(401).json({ error: "帳號或密碼錯誤。" });
         }
 
-        // 【v2.1 修正】 比較 user.passwordHash (而不是 user.password)
         const match = await bcrypt.compare(password, user.passwordHash);
         if (!match) {
             return res.status(401).json({ error: "帳號或密碼錯誤。" });
@@ -219,7 +210,6 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
     }
 });
 
-// 【v2 統一】 宣告所有「普通管理員」即可存取的 API
 const adminAPIs = [
     "/change-number", "/set-number",
     "/api/passed/add", "/api/passed/remove", "/api/passed/clear",
@@ -228,16 +218,14 @@ const adminAPIs = [
     "/api/layout/load", "/api/layout/save",
     "/api/logs/clear"
 ];
-// 【v2 統一】 套用「通用限制」和「JWT 驗證」
 app.use(adminAPIs, apiLimiter, jwtAuthMiddleware);
 
-// 【v2 統一】 宣告所有「超級管理員」才能存取的 API
 const superAdminAPIs = [
     "/api/admin/users/list",
     "/api/admin/users/create",
-    "/api/admin/users/delete"
+    "/api/admin/users/delete",
+    "/api/admin/users/update-password" // 【v2.2 新增】
 ];
-// 【v2 統一】 套用「通用限制」、「JWT 驗證」和「Super Admin 檢查」
 app.use(superAdminAPIs, apiLimiter, jwtAuthMiddleware, superAdminCheckMiddleware);
 
 
@@ -493,12 +481,11 @@ app.post("/api/admin/users/create", async (req, res) => {
             return res.status(409).json({ error: "此帳號名稱已存在。" });
         }
 
-        // 【v2.1 修正】 儲存雜湊
         const passwordHash = await bcrypt.hash(password, 10);
         
         const newUser = {
             username: lowerUsername,
-            passwordHash: passwordHash, // 儲存 passwordHash
+            passwordHash: passwordHash, 
             role
         };
         
@@ -534,6 +521,48 @@ app.post("/api/admin/users/delete", async (req, res) => {
     }
 });
 
+// --- 【v2.2 新增】 修改密碼 API ---
+app.post("/api/admin/users/update-password", async (req, res) => {
+    try {
+        const { username, newPassword } = req.body;
+        if (!username || !newPassword) {
+            return res.status(400).json({ error: "帳號和新密碼為必填。" });
+        }
+        if (newPassword.length < 8) {
+             return res.status(400).json({ error: "新密碼長度至少需 8 個字元。" });
+        }
+
+        const lowerUsername = username.toLowerCase();
+        
+        // 1. 檢查用戶是否存在
+        const userJSON = await redis.hget(KEY_USERS_HASH, lowerUsername);
+        if (!userJSON) {
+            return res.status(404).json({ error: "找不到該用戶。" });
+        }
+
+        const user = JSON.parse(userJSON);
+
+        // 2. 雜湊新密碼
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        
+        // 3. 更新用戶物件
+        const updatedUser = {
+            ...user,
+            passwordHash: passwordHash // 更新雜湊
+        };
+        
+        // 4. 存回 Redis
+        await redis.hset(KEY_USERS_HASH, lowerUsername, JSON.stringify(updatedUser));
+        
+        await addAdminLog(`重設了用戶 ${lowerUsername} 的密碼`, req.user.username); 
+        
+        res.json({ success: true, message: `用戶 ${lowerUsername} 的密碼已更新。` });
+
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 
 // --- 11. Socket.io 連線處理 ---
 io.on("connection", async (socket) => {
@@ -543,7 +572,7 @@ io.on("connection", async (socket) => {
     try {
         payload = jwt.verify(token, JWT_SECRET);
     } catch (e) {
-        // ( Public User 邏輯保持不變 )
+        // ( Public User 邏輯 )
         console.log("🔌 一個 Public User 連線 (無效 Token)", socket.id);
         try {
             const pipeline = redis.multi();
@@ -609,7 +638,6 @@ io.on("connection", async (socket) => {
 
 // --- 12. 伺服器啟動 & 自動建立 Super Admin ---
 
-// 【v2.1 修正】 增加自動修復功能
 async function createSuperAdminOnStartup() {
     try {
         const username = SUPER_ADMIN_USERNAME.toLowerCase();
@@ -621,7 +649,7 @@ async function createSuperAdminOnStartup() {
             const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
             const superAdmin = {
                 username,
-                passwordHash: passwordHash, // 儲存雜湊
+                passwordHash: passwordHash, 
                 role: 'superadmin'
             };
             await redis.hset(KEY_USERS_HASH, username, JSON.stringify(superAdmin));
@@ -630,16 +658,15 @@ async function createSuperAdminOnStartup() {
         } else {
             // 2. 用戶存在 -> 檢查是否為舊的 (不安全) 格式
             const user = JSON.parse(userJSON);
-            if (!user.passwordHash && user.password) {
-                // 這是舊的、不安全的帳號，強制更新
+            // 【v2.1 修正】 檢查 passwordHash 是否存在
+            if (!user.passwordHash) {
                 console.warn(`... 偵測到舊的 (不安全) 超級管理員帳號，正在強制更新密碼...`);
                 const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
                 
                 const fixedUser = {
                     username: user.username,
-                    passwordHash: passwordHash, // 儲存新雜湊
-                    role: 'superadmin' // 確保角色
-                    // (舊的 "password" 欄位被自動丟棄)
+                    passwordHash: passwordHash, 
+                    role: 'superadmin' 
                 };
                 
                 await redis.hset(KEY_USERS_HASH, username, JSON.stringify(fixedUser));
