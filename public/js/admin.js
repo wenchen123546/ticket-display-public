@@ -1,7 +1,6 @@
 // --- 1. 元素節點 (DOM) ---
-const loginContainer = document.getElementById("login-container"); // 這是舊的 v1 登入框
+const loginContainer = document.getElementById("login-container"); 
 const adminPanel = document.getElementById("admin-panel");
-// ... (其他 DOM 元素保持不變) ...
 const numberEl = document.getElementById("number");
 const statusBar = document.getElementById("status-bar");
 const passedListUI = document.getElementById("passed-list-ui");
@@ -18,55 +17,48 @@ const clearLogBtn = document.getElementById("clear-log-btn");
 const resetAllBtn = document.getElementById("resetAll");
 const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
 const saveLayoutBtn = document.getElementById("save-layout-btn"); 
+const toggleLayoutLockBtn = document.getElementById("toggle-layout-lock-btn"); // 【新】
+const superAdminLink = document.getElementById("superadmin-link"); // 【新】
 
 // --- 2. 全域變數 ---
-let token = ""; // 【修改】 這裡現在會儲存 JWT (v2)
+let token = ""; 
 let resetAllTimer = null;
 let grid = null; 
 let toastTimer = null; 
-let currentUser = null; // 【新】 用於儲存登入者資訊
+let currentUser = null; 
+let isLayoutLocked = true; // 【新】 預設為鎖定
 
 // --- 3. Socket.io ---
 const socket = io({ 
     autoConnect: false,
     auth: {
-        token: "" // 【修改】 這裡將會填入 JWT
+        token: "" 
     }
 });
 
 // --- 4. 【v2 重構】 登入/顯示邏輯 ---
 
-// 【新】 頁面載入時的檢查
 document.addEventListener("DOMContentLoaded", () => {
     token = localStorage.getItem("jwtToken");
 
     if (!token) {
-        // 1. 沒有 Token -> 強制轉跳到 v2 登入頁面
         alert("您尚未登入。");
-        window.location.href = "/login.html"; // 轉到新的登入頁
+        window.location.href = "/login.html"; 
         return;
     }
 
-    // 2. 解碼 Token 以取得用戶資訊
     try {
         currentUser = JSON.parse(atob(token.split('.')[1]));
         console.log("已登入用戶:", currentUser);
     } catch (e) {
-        // 3. Token 格式錯誤 -> 登出
         alert("Token 格式錯誤，請重新登入。");
         localStorage.removeItem("jwtToken");
         window.location.href = "/login.html";
         return;
     }
     
-    // 4. 有 Token -> 顯示儀表板並初始化
-    // (隱藏舊的 v1 登入框)
     if (loginContainer) loginContainer.style.display = "none"; 
-    
-    // 5. 設定 Socket.io 的驗證 Token
     socket.auth.token = token;
-    
-    // 6. 啟動儀表板
     showPanel();
 });
 
@@ -74,20 +66,14 @@ document.addEventListener("DOMContentLoaded", () => {
 async function showPanel() {
     adminPanel.style.display = "block";
     document.title = "後台管理 - 控制台";
-    socket.connect(); // 連線！
+    socket.connect(); 
 
-    // 【新】 根據權限顯示「超級管理員」按鈕
-    // (我們在 admin.html 中並沒有 "superadmin-link" 按鈕，您需要稍後手動加入)
-    const superAdminLink = document.getElementById("superadmin-link");
-    if (superAdminLink) {
-        if (currentUser.role === 'superadmin') {
-            superAdminLink.style.display = 'block';
-        } else {
-            superAdminLink.style.display = 'none';
-        }
+    // 【新】 需求 3：根據權限顯示「超級管理員」按鈕
+    if (superAdminLink && currentUser.role === 'superadmin') {
+        superAdminLink.style.display = 'block';
     }
 
-    // (載入排版的邏輯保持不變)
+    // (載入排版)
     let savedLayout = null;
     try {
         const response = await apiRequest("/api/layout/load", {}, true); 
@@ -115,6 +101,10 @@ async function showPanel() {
         if (savedLayout) {
             grid.load(savedLayout);
         }
+
+        // 【新】 需求 2：預設鎖定儀表板
+        grid.disable();
+        
     }, 100); 
 }
 
@@ -187,9 +177,8 @@ async function apiRequest(endpoint, body = {}, a_returnResponse = false) {
             method: "POST",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}` // 【v2 修改】 使用 JWT Bearer
+                "Authorization": `Bearer ${token}` 
             },
-            // 【v2 修改】 不再在 body 中傳遞 token
             body: JSON.stringify(body), 
         });
         
@@ -409,7 +398,7 @@ publicToggle.addEventListener("change", () => {
     apiRequest("/set-public-status", { isPublic: isPublic });
 });
 
-// --- 13. 【v2 修改】 綁定 GridStack 儲存按鈕 ---
+// --- 13. 【v2 修改】 綁定 GridStack 控制按鈕 ---
 if (saveLayoutBtn) {
     saveLayoutBtn.addEventListener("click", async () => {
         if (!grid) return;
@@ -429,6 +418,30 @@ if (saveLayoutBtn) {
         
         if (success) {
             showToast("✅ 排版已成功儲存！", "success");
+            // 儲存後自動鎖定
+            if (!isLayoutLocked) {
+                grid.disable();
+                isLayoutLocked = true;
+                toggleLayoutLockBtn.textContent = "🔓 解鎖排版";
+            }
         } 
+    });
+}
+
+// 【新】 需求 2：綁定鎖定/解鎖按鈕
+if (toggleLayoutLockBtn) {
+    toggleLayoutLockBtn.addEventListener("click", () => {
+        if (!grid) return;
+        
+        if (isLayoutLocked) {
+            grid.enable();
+            toggleLayoutLockBtn.textContent = "🔒 鎖定排版";
+            showToast("ℹ️ 儀表板已解鎖，您可以拖移卡片。", "info");
+        } else {
+            grid.disable();
+            toggleLayoutLockBtn.textContent = "🔓 解鎖排版";
+            showToast("ℹ️ 儀表板已鎖定。", "info");
+        }
+        isLayoutLocked = !isLayoutLocked;
     });
 }
