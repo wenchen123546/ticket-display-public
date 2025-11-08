@@ -1,13 +1,26 @@
-// public/js/admin.js (v3.3 修改版)
+// public/js/admin.js (v3.4 修改版)
 
 // --- 1. 元素節點 (DOM) ---
 const adminPanel = document.getElementById("admin-panel");
 const numberEl = document.getElementById("number");
-// ... (其他 DOM 節點)
+const statusBar = document.getElementById("status-bar");
+const passedListUI = document.getElementById("passed-list-ui");
+const newPassedNumberInput = document.getElementById("new-passed-number");
+const addPassedBtn = document.getElementById("add-passed-btn");
+const featuredListUI = document.getElementById("featured-list-ui");
+const newLinkTextInput = document.getElementById("new-link-text");
+const newLinkUrlInput = document.getElementById("new-link-url");
+const addFeaturedBtn = document.getElementById("add-featured-btn");
+const soundToggle = document.getElementById("sound-toggle");
+const publicToggle = document.getElementById("public-toggle"); 
+const adminLogUI = document.getElementById("admin-log-ui");
+const clearLogBtn = document.getElementById("clear-log-btn");
+const resetAllBtn = document.getElementById("resetAll");
+const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
 const saveLayoutBtn = document.getElementById("save-layout-btn"); 
 const toggleLayoutLockBtn = document.getElementById("toggle-layout-lock-btn"); 
 const superAdminLink = document.getElementById("superadmin-link");
-const logoutButton = document.getElementById("logout-button"); // 【v3.3】 新增
+const logoutButton = document.getElementById("logout-button"); 
 
 // --- 2. 全域變數 ---
 let resetAllTimer = null;
@@ -15,7 +28,7 @@ let grid = null;
 let toastTimer = null; 
 let currentUser = null;
 let isLayoutLocked = true;
-let isChangingNumber = false; // 【v3.3】 新增防呆 flag
+let isChangingNumber = false; 
 
 // --- 3. Socket.io (不變) ---
 const socket = io({ 
@@ -111,7 +124,6 @@ function showToast(message, type = 'info') {
 }
  
 // --- 6. 控制台 Socket 監聽器 (不變) ---
-// ... (socket.on(...) ... )
 socket.on("connect", () => {
     console.log("Socket.io 已連接 (v3.0 Cookie Auth)");
     statusBar.classList.remove("visible");
@@ -201,7 +213,6 @@ async function apiRequest(endpoint, body = {}, a_returnResponse = false) {
 }
  
 // --- 8. GUI 渲染函式 (不變) ---
-// ... (renderPassedListUI, renderFeaturedListUI ...)
 function renderPassedListUI(numbers) {
     passedListUI.innerHTML = ""; 
     if (!Array.isArray(numbers)) return;
@@ -260,7 +271,7 @@ function renderFeaturedListUI(contents) {
  
 // --- 9. 控制台按鈕功能 ---
 
-// 【v3.3 修改】 新增防呆 (Debounce)
+// 【v3.4 修改】 移除 500ms 延遲
 async function changeNumber(direction) {
     if (isChangingNumber) return; // 如果正在請求，則忽略此次點擊
     
@@ -271,10 +282,8 @@ async function changeNumber(direction) {
     } catch (e) {
         console.error("changeNumber 失敗:", e);
     } finally {
-        // 500ms 後才允許下一次點擊
-        setTimeout(() => {
-            isChangingNumber = false; 
-        }, 500); 
+        // 請求完成後，立刻解除鎖定
+        isChangingNumber = false; 
     }
 }
 
@@ -341,19 +350,16 @@ async function clearAdminLog() {
     }
 }
  
-// --- 10. 綁定按鈕事件 ---
+// --- 10. 綁定按鈕事件 (v3.3, 不變) ---
 document.getElementById("next").onclick = () => changeNumber("next");
 document.getElementById("prev").onclick = () => changeNumber("prev");
 document.getElementById("setNumber").onclick = setNumber;
-// ... (其他按鈕)
 document.getElementById("resetNumber").onclick = resetNumber;
 document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents_fixed;
 document.getElementById("resetPassed").onclick = resetPassed_fixed;
 resetAllBtn.onclick = requestResetAll;
 resetAllConfirmBtn.onclick = confirmResetAll;
-clearLogBtn.onclick = clearAdminLog; 
-
-// 【v3.3】 綁定登出按鈕
+clearLogBtn.onclick = clearLogBtn; 
 if (logoutButton) {
     logoutButton.addEventListener("click", () => {
         if (confirm("確定要登出嗎？")) {
@@ -362,8 +368,6 @@ if (logoutButton) {
         }
     });
 }
-
-// ... (addPassedBtn, addFeaturedBtn 不變) ...
 addPassedBtn.onclick = async () => {
     const num = Number(newPassedNumberInput.value);
     if (num <= 0 || !Number.isInteger(num)) {
