@@ -1,5 +1,5 @@
 // --- 1. 元素節點 (DOM) ---
-const loginContainer = document.getElementById("login-container"); 
+const loginContainer = document.getElementById("login-container"); // (v2.5 已移除 HTML)
 const adminPanel = document.getElementById("admin-panel");
 const numberEl = document.getElementById("number");
 const statusBar = document.getElementById("status-bar");
@@ -19,15 +19,15 @@ const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
 const saveLayoutBtn = document.getElementById("save-layout-btn"); 
 const toggleLayoutLockBtn = document.getElementById("toggle-layout-lock-btn"); 
 const superAdminLink = document.getElementById("superadmin-link"); 
-
+ 
 // --- 2. 全域變數 ---
 let token = ""; 
 let resetAllTimer = null;
 let grid = null; 
 let toastTimer = null; 
 let currentUser = null; 
-let isLayoutLocked = true; 
-
+let isLayoutLocked = true; // 預設為鎖定
+ 
 // --- 3. Socket.io ---
 const socket = io({ 
     autoConnect: false,
@@ -35,47 +35,50 @@ const socket = io({
         token: "" 
     }
 });
-
+ 
 // --- 4. 【v2.3 修正】 登入/顯示邏輯 ---
-
+ 
 document.addEventListener("DOMContentLoaded", () => {
     // 【v2.3 修正】 從 sessionStorage 讀取
     token = sessionStorage.getItem("jwtToken");
-    // 【v2.3 修正】 移除 removeItem (不再需要)
-    // localStorage.removeItem("jwtToken"); 
-
+ 
     if (!token) {
-        // (保持不變) 
         alert("您尚未登入或登入已逾時。");
         window.location.href = "/login.html"; 
         return;
     }
-
+ 
     try {
         currentUser = JSON.parse(atob(token.split('.')[1]));
         console.log("已登入用戶:", currentUser);
-    } catch (e) {
+    }
+    catch (e) {
         alert("Token 格式錯誤，請重新登入。");
-        sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
+        sessionStorage.removeItem("jwtToken"); 
         window.location.href = "/login.html";
         return;
     }
-    
-    if (loginContainer) loginContainer.style.display = "none"; 
+     
+    // if (loginContainer) loginContainer.style.display = "none"; // (v2.5 HTML 已移除)
     socket.auth.token = token;
     showPanel();
 });
-
-
+ 
+ 
 async function showPanel() {
     adminPanel.style.display = "block";
     document.title = "後台管理 - 控制台";
     socket.connect(); 
-
+ 
     if (superAdminLink && currentUser.role === 'superadmin') {
         superAdminLink.style.display = 'block';
     }
-
+ 
+    // 【v2.4 改善 B】 儲存按鈕預設禁用
+    if (saveLayoutBtn) {
+        saveLayoutBtn.disabled = true;
+    }
+ 
     let savedLayout = null;
     try {
         const response = await apiRequest("/api/layout/load", {}, true); 
@@ -85,19 +88,21 @@ async function showPanel() {
         } else {
             showToast("ℹ️ 使用預設排版", "info");
         }
-    } catch (e) {
+    }
+    catch (e) {
         showToast(`❌ 讀取排版失敗: ${e.message}`, "error");
     }
-
+ 
     setTimeout(() => {
         grid = GridStack.init({
             column: 12, 
             cellHeight: 'auto', 
             margin: 10,         
-            minRow: 1,          
-            float: true,      
+            minRow: 1,           
+            float: true,       
             removable: false,   
             alwaysShowResizeHandle: 'mobile',
+            // 【v2.4 改善 A】 預設禁用拖移和縮放
             disableDrag: true,
             disableResize: true,
         });
@@ -108,7 +113,7 @@ async function showPanel() {
         
     }, 100); 
 }
-
+ 
 // --- 5. Toast 通知函式 ---
 function showToast(message, type = 'info') {
     const toast = document.getElementById("toast-notification");
@@ -121,7 +126,7 @@ function showToast(message, type = 'info') {
         toast.classList.remove("show");
     }, 3000);
 }
-
+ 
 // --- 6. 控制台 Socket 監聽器 ---
 socket.on("connect", () => {
     console.log("Socket.io 已連接");
@@ -136,7 +141,7 @@ socket.on("disconnect", () => {
 socket.on("connect_error", (err) => {
     console.error("Socket 連線失敗:", err.message);
     alert("Socket 驗證失敗，您的登入可能已過期，請重新登入。");
-    sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
+    sessionStorage.removeItem("jwtToken"); 
     window.location.href = "/login.html";
 });
 socket.on("initAdminLogs", (logs) => {
@@ -169,8 +174,8 @@ socket.on("updateFeaturedContents", (contents) => { renderFeaturedListUI(content
 socket.on("updateSoundSetting", (isEnabled) => { soundToggle.checked = isEnabled; });
 socket.on("updatePublicStatus", (isPublic) => { publicToggle.checked = isPublic; });
 socket.on("updateTimestamp", (timestamp) => { console.log("Timestamp updated:", timestamp); });
-
-
+ 
+ 
 // --- 7. API 請求函式 ---
 async function apiRequest(endpoint, body = {}, a_returnResponse = false) {
     try {
@@ -185,32 +190,33 @@ async function apiRequest(endpoint, body = {}, a_returnResponse = false) {
         
         if (res.status === 401 || res.status === 403) {
             alert("權限不足或登入已過期，請重新登入。");
-            sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
+            sessionStorage.removeItem("jwtToken"); 
             window.location.href = "/login.html";
             return false; 
         }
         
         const responseData = await res.json(); 
-
+ 
         if (!res.ok) {
             const errorMsg = responseData.error || "未知錯誤";
             showToast(`❌ API 錯誤: ${errorMsg}`, "error");
             alert("發生錯誤：" + errorMsg);
             return false;
         }
-
+ 
         if (a_returnResponse) {
             return responseData; 
         }
         
         return true; 
-    } catch (err) {
+    }
+    catch (err) {
         showToast(`❌ 網路連線失敗: ${err.message}`, "error");
         alert("網路連線失敗或伺服器無回應：" + err.message);
         return false;
     }
 }
-
+ 
 // --- 8. GUI 渲染函式 ---
 function renderPassedListUI(numbers) {
     passedListUI.innerHTML = ""; 
@@ -267,15 +273,17 @@ function renderFeaturedListUI(contents) {
     });
     featuredListUI.appendChild(fragment);
 }
-
+ 
 // --- 9. 控制台按鈕功能 ---
 async function changeNumber(direction) {
-    await apiRequest("/change-number", { direction });
+    // 【v2.5 重構】 API 路由更新
+    await apiRequest("/api/number/change", { direction });
 }
 async function setNumber() {
     const num = document.getElementById("manualNumber").value;
     if (num === "") return;
-    const success = await apiRequest("/set-number", { number: num });
+    // 【v2.5 重構】 API 路由更新
+    const success = await apiRequest("/api/number/set", { number: num });
     if (success) {
         document.getElementById("manualNumber").value = "";
         showToast("✅ 號碼已設定", "success");
@@ -283,7 +291,8 @@ async function setNumber() {
 }
 async function resetNumber() {
     if (!confirm("確定要將「目前號碼」重置為 0 嗎？")) return;
-    const success = await apiRequest("/set-number", { number: 0 });
+    // 【v2.5 重構】 API 路由更新
+    const success = await apiRequest("/api/number/set", { number: 0 });
     if (success) {
         document.getElementById("manualNumber").value = "";
         showToast("✅ 號碼已重置為 0", "success");
@@ -312,7 +321,8 @@ function cancelResetAll() {
     }
 }
 async function confirmResetAll() {
-    const success = await apiRequest("/reset", {});
+    // 【v2.5 重構】 API 路由更新
+    const success = await apiRequest("/api/system/reset", {});
     if (success) {
         document.getElementById("manualNumber").value = "";
         showToast("💥 所有資料已重置", "success");
@@ -333,7 +343,7 @@ async function clearAdminLog() {
         await apiRequest("/api/logs/clear", {});
     }
 }
-
+ 
 // --- 10. 綁定按鈕事件 ---
 document.getElementById("next").onclick = () => changeNumber("next");
 document.getElementById("prev").onclick = () => changeNumber("prev");
@@ -379,16 +389,17 @@ addFeaturedBtn.onclick = async () => {
     }
     addFeaturedBtn.disabled = false;
 };
-
+ 
 // --- 11. 綁定 Enter 鍵 ---
 newPassedNumberInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { addPassedBtn.click(); } });
 newLinkTextInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { newLinkUrlInput.focus(); } });
 newLinkUrlInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { addFeaturedBtn.click(); } });
-
+ 
 // --- 12. 綁定開關 ---
 soundToggle.addEventListener("change", () => {
     const isEnabled = soundToggle.checked;
-    apiRequest("/set-sound-enabled", { enabled: isEnabled });
+    // 【v2.5 重構】 API 路由更新
+    apiRequest("/api/settings/sound", { enabled: isEnabled });
 });
 publicToggle.addEventListener("change", () => {
     const isPublic = publicToggle.checked;
@@ -398,10 +409,11 @@ publicToggle.addEventListener("change", () => {
             return;
         }
     }
-    apiRequest("/set-public-status", { isPublic: isPublic });
+    // 【v2.5 重構】 API 路由更新
+    apiRequest("/api/settings/public", { isPublic: isPublic });
 });
-
-// --- 13. 綁定 GridStack 控制按鈕 ---
+ 
+// --- 13. 【v2.4 改善】 綁定 GridStack 控制按鈕 ---
 if (saveLayoutBtn) {
     saveLayoutBtn.addEventListener("click", async () => {
         if (!grid) return;
@@ -413,24 +425,26 @@ if (saveLayoutBtn) {
             w: item.w, 
             h: item.h 
         }));
-
+ 
         showToast("💾 正在儲存排版...", "info");
         console.log("正在儲存:", JSON.stringify(layoutData, null, 2));
-
+ 
         const success = await apiRequest("/api/layout/save", { layout: layoutData });
         
         if (success) {
             showToast("✅ 排版已成功儲存！", "success");
+            // 【v2.4 改善】 儲存後自動鎖定
             if (!isLayoutLocked) {
                 grid.enableMove(false);
                 grid.enableResize(false);
                 isLayoutLocked = true;
                 toggleLayoutLockBtn.textContent = "🔓 解鎖排版";
+                saveLayoutBtn.disabled = true; // 禁用儲存
             }
         } 
     });
 }
-
+ 
 if (toggleLayoutLockBtn) {
     toggleLayoutLockBtn.addEventListener("click", () => {
         if (!grid) return;
@@ -439,11 +453,13 @@ if (toggleLayoutLockBtn) {
             grid.enableMove(true);
             grid.enableResize(true);
             toggleLayoutLockBtn.textContent = "🔒 鎖定排版";
+            saveLayoutBtn.disabled = false; // 【v2.4 改善】 啟用儲存
             showToast("ℹ️ 儀表板已解鎖，您可以拖移卡片。", "info");
         } else {
             grid.enableMove(false);
             grid.enableResize(false);
             toggleLayoutLockBtn.textContent = "🔓 解鎖排版";
+            saveLayoutBtn.disabled = true; // 【v2.4 改善】 禁用儲存
             showToast("ℹ️ 儀表板已鎖定。", "info");
         }
         isLayoutLocked = !isLayoutLocked;
