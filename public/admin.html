@@ -6,58 +6,10 @@
 <title>後台管理 - 登入</title>
 <script src="/socket.io/socket.io.js"></script>
 
-<link rel="stylesheet" href="/css/admin.css?v=5">
+<link rel="stylesheet" href="/css/admin.css?v=6">
 
-<style>
-    /* * == 1. 強制統一「輸入框」和「列表框」的寬度 ==
-     * (已將 input 選擇器變得更精確，避免選到 checkbox)
-     */
-    .admin-card input[type="number"],
-    .admin-card input[type="text"],
-    .admin-card textarea,
-    .admin-card .list-editor {
-        width: 90% !important;
-        max-width: none !important; 
-        box-sizing: border-box !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
-
-    /* * == 2. 強制統一「Toggle 框」的寬度與內部置中 ==
-     * (【本次修正】 新增 gap: 10px)
-     */
-    .admin-card .control-group.sound-toggle-group,
-    .admin-card .control-group.system-toggle-group {
-        width: 90% !important; 
-        max-width: none !important;
-        box-sizing: border-box !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        display: flex !important;
-        flex-direction: row !important;
-        justify-content: center !important; 
-        align-items: center !important;
-        gap: 10px !important; /* <-- 這行會強制文字和勾選框緊鄰 */
-    }
-
-
-    /* * == 3. 【本次修正】 強制統一「主要按鈕」的寬度 ==
-     * (只鎖定特定 ID 和 class，避免影響「+」按鈕)
-     */
-    #setNumber, #resetAll, #resetAllConfirm, .btn-clear-log {
-        width: 90% !important;
-        max-width: none !important;
-        box-sizing: border-box !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
-    
-    /* * == 4. 修正 Reset 按鈕的寬度 (讓它們保持並排) ==
-     */
-    .admin-card .reset-zone .btn-reset-single {
-        width: auto !important; 
-    }
-</style>
+<link href="https://cdn.jsdelivr.net/npm/gridstack@9.5.1/dist/gridstack.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/gridstack@9.5.1/dist/gridstack-all.js"></script>
 </head>
 <body>
 
@@ -80,82 +32,85 @@
 </div>
 
 
-<div class="admin-grid">
+<div class="grid-stack">
 
-<div class="grid-column">
-
-<div class="admin-card">
-<h3><span class="card-icon">🕹️</span> 主要控制</h3>
-<div class="control-group sound-toggle-group">
-<label for="sound-toggle">啟用前台音效</label>
-<input type="checkbox" id="sound-toggle">
-</div>
-<div class="control-group">
-<label for="manualNumber">手動設定號碼</label>
-<input type="number" id="manualNumber" placeholder="輸入號碼" />
-<button id="setNumber" type="button" class="btn-primary">設定號碼</button>
-</div>
-
-<div class="control-group list-editor">
-<label>手動編輯過號列表</label>
-<ul id="passed-list-ui"></ul>
-<div class="input-group">
-<label for="new-passed-number" class="sr-only">輸入過號號碼</label>
-<input type="number" id="new-passed-number" placeholder="輸入號碼">
-<button id="add-passed-btn" type="button" class="btn-add">+</button>
-</div>
-</div>
-</div>
-
-<div class="admin-card">
-<h3><span class="card-icon">📋</span> 即時操作日誌</h3>
-<div class="control-group admin-log-container">
-<ul id="admin-log-ui">
-<li>等待伺服器連線...</li>
-</ul>
-<button id="clear-log-btn" type="button" class="btn-clear-log">清除日誌</button>
-</div>
-</div>
-
-</div> <div class="grid-column">
-
-<div class="admin-card">
-<h3><span class="card-icon">📝</span> 列表編輯</h3>
-<div class="control-group list-editor">
-<label>編輯精選連結</label>
-<ul id="featured-list-ui"></ul>
-<div class="input-group">
-<label for="new-link-text" class="sr-only">連結文字</label>
-<input type="text" id="new-link-text" placeholder="連結文字">
-<label for="new-link-url" class="sr-only">連結網址 (https://...)</label>
-<input type="text" id="new-link-url" placeholder="https://... 網址">
-<button id="add-featured-btn" type="button" class="btn-add">+</button>
-</div>
-</div>
-
-</div>
-
-<div class="admin-card">
-<h3><span class="card-icon">⚙️</span> 系統設定</h3>
-
-<div class="control-group system-toggle-group">
-    <label for="public-toggle">對外開放前台</label>
-    <input type="checkbox" id="public-toggle">
-</div>
-
-<div class="reset-zone">
-<div class="control-group button-row">
-<button id="resetNumber" type="button" class="btn-reset-single">重置號碼</button>
-<button id="resetFeaturedContents" type="button" class="btn-reset-single">重置精選連結</button>
-<button id="resetPassed" type="button" class="btn-reset-single">重置過號列表</button>
-</div>
-
-<button id="resetAll" type="button" class="btn-danger">💥 重置所有 (點擊確認)</button>
-<button id="resetAllConfirm" type="button" class="btn-danger-confirm" style="display:none;">⚠️ 點此確認重置 ⚠️</button>
-
-</div>
-</div>
-
-</div> </div> </div> <script src="/js/admin.js"></script>
+    <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="6" gs-h="5" gs-min-w="4" gs-min-h="5">
+        <div class="grid-stack-item-content">
+            <div class="admin-card">
+                <h3><span class="card-icon">🕹️</span> 主要控制</h3>
+                <div class="control-group sound-toggle-group">
+                <label for="sound-toggle">啟用前台音效</label>
+                <input type="checkbox" id="sound-toggle">
+                </div>
+                <div class="control-group">
+                <label for="manualNumber">手動設定號碼</label>
+                <input type="number" id="manualNumber" placeholder="輸入號碼" />
+                <button id="setNumber" type="button" class="btn-primary">設定號碼</button>
+                </div>
+                <div class="control-group list-editor">
+                <label>手動編輯過號列表</label>
+                <ul id="passed-list-ui"></ul>
+                <div class="input-group">
+                    <label for="new-passed-number" class="sr-only">輸入過號號碼</label>
+                    <input type="number" id="new-passed-number" placeholder="輸入號碼">
+                    <button id="add-passed-btn" type="button" class="btn-add">+</button>
+                </div>
+                </div>
+            </div>
+            </div>
+    </div> <div class="grid-stack-item" gs-x="6" gs-y="0" gs-w="6" gs-h="4" gs-min-w="4" gs-min-h="4">
+        <div class="grid-stack-item-content">
+            <div class="admin-card">
+                <h3><span class="card-icon">📝</span> 列表編輯</h3>
+                <div class="control-group list-editor">
+                <label>編輯精選連結</label>
+                <ul id="featured-list-ui"></ul>
+                <div class="input-group">
+                    <label for="new-link-text" class="sr-only">連結文字</label>
+                    <input type="text" id="new-link-text" placeholder="連結文字">
+                    <label for="new-link-url" class="sr-only">連結網址 (https://...)</label>
+                    <input type="text" id="new-link-url" placeholder="https://... 網址">
+                    <button id="add-featured-btn" type="button" class="btn-add">+</button>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div> <div class="grid-stack-item" gs-x="0" gs-y="5" gs-w="6" gs-h="3" gs-min-w="4" gs-min-h="3">
+        <div class="grid-stack-item-content">
+            <div class="admin-card">
+                <h3><span class="card-icon">📋</span> 即時操作日誌</h3>
+                <div class="control-group admin-log-container">
+                <ul id="admin-log-ui">
+                    <li>等待伺服器連線...</li>
+                </ul>
+                <button id="clear-log-btn" type="button" class="btn-clear-log">清除日誌</button>
+                </div>
+            </div>
+        </div>
+    </div> <div class="grid-stack-item" gs-x="6" gs-y="4" gs-w="6" gs-h="4" gs-min-w="4" gs-min-h="4">
+        <div class="grid-stack-item-content">
+            <div class="admin-card">
+                <h3><span class="card-icon">⚙️</span> 系統設定</h3>
+                <div class="control-group system-toggle-group">
+                    <label for="public-toggle">對外開放前台</label>
+                    <input type="checkbox" id="public-toggle">
+                </div>
+                <div class="reset-zone">
+                <div class="control-group button-row">
+                    <button id="resetNumber" type="button" class="btn-reset-single">重置號碼</button>
+                    <button id="resetFeaturedContents" type="button" class="btn-reset-single">重置精選連結</button>
+                    <button id="resetPassed" type="button" class="btn-reset-single">重置過號列表</button>
+                </div>
+                <button id="resetAll" type="button" class="btn-danger">💥 重置所有 (點擊確認)</button>
+                <button id="resetAllConfirm" type="button" class="btn-danger-confirm" style="display:none;">⚠️ 點此確認重置 ⚠️</button>
+                </div>
+                
+                <div class="control-group" style="border-top: 1px solid #eee; margin-top: 20px; padding-top: 20px;">
+                    <button id="save-layout-btn" type="button" class="btn-secondary">💾 儲存儀表板排版</button>
+                </div>
+                
+            </div>
+        </div>
+    </div> </div> </div> <script src="/js/admin.js"></script>
 </body>
 </html>
