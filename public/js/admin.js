@@ -1,5 +1,3 @@
-// public/js/admin.js
-
 // --- 1. 元素節點 (DOM) ---
 const loginContainer = document.getElementById("login-container"); // 這是舊的 v1 登入框
 const adminPanel = document.getElementById("admin-panel");
@@ -37,8 +35,6 @@ const socket = io({
 });
 
 // --- 4. 【v2 重構】 登入/顯示邏輯 ---
-
-// (移除舊的 v1 showLogin, showPanel, checkToken, attemptLogin 函式)
 
 // 【新】 頁面載入時的檢查
 document.addEventListener("DOMContentLoaded", () => {
@@ -123,7 +119,6 @@ async function showPanel() {
 }
 
 // --- 5. 【v2 重構】 Toast 通知函式 ---
-let toastTimer = null;
 function showToast(message, type = 'info') {
     const toast = document.getElementById("toast-notification");
     if (!toast) return;
@@ -149,7 +144,6 @@ socket.on("disconnect", () => {
 });
 socket.on("connect_error", (err) => {
     console.error("Socket 連線失敗:", err.message);
-    // (v1 的 Token 錯誤已不存在，現在是 JWT 錯誤)
     alert("Socket 驗證失敗，您的登入可能已過期，請重新登入。");
     localStorage.removeItem("jwtToken");
     window.location.href = "/login.html";
@@ -202,7 +196,6 @@ async function apiRequest(endpoint, body = {}, a_returnResponse = false) {
         const responseData = await res.json(); 
 
         if (!res.ok) {
-            // 【v2 修改】 檢查 401 (未授權)
             if (res.status === 401 || res.status === 403) {
                 alert("權限不足或登入已過期，請重新登入。");
                 localStorage.removeItem("jwtToken");
@@ -227,7 +220,6 @@ async function apiRequest(endpoint, body = {}, a_returnResponse = false) {
 }
 
 // --- 8. GUI 渲染函式 ---
-// (renderPassedListUI 和 renderFeaturedListUI (安全版) 保持不變)
 function renderPassedListUI(numbers) {
     passedListUI.innerHTML = ""; 
     if (!Array.isArray(numbers)) return;
@@ -285,7 +277,6 @@ function renderFeaturedListUI(contents) {
 }
 
 // --- 9. 控制台按鈕功能 ---
-// (所有按鈕功能保持不變，它們現在會自動使用 v2 的 apiRequest)
 async function changeNumber(direction) {
     await apiRequest("/change-number", { direction });
 }
@@ -352,7 +343,6 @@ async function clearAdminLog() {
 }
 
 // --- 10. 綁定按鈕事件 ---
-// (所有綁定保持不變)
 document.getElementById("next").onclick = () => changeNumber("next");
 document.getElementById("prev").onclick = () => changeNumber("prev");
 document.getElementById("setNumber").onclick = setNumber;
@@ -382,7 +372,7 @@ addFeaturedBtn.onclick = async () => {
         alert("「連結文字」和「網址」都必須填寫。");
         return;
     }
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (!url.startsWith('http://') && !url.startsWith('httpsS://')) {
         alert("網址請務必以 http:// 或 https:// 開頭。");
         return;
     }
@@ -399,13 +389,11 @@ addFeaturedBtn.onclick = async () => {
 };
 
 // --- 11. 綁定 Enter 鍵 ---
-// (保持不變)
 newPassedNumberInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { addPassedBtn.click(); } });
 newLinkTextInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { newLinkUrlInput.focus(); } });
 newLinkUrlInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { addFeaturedBtn.click(); } });
 
 // --- 12. 綁定開關 ---
-// (保持不變)
 soundToggle.addEventListener("change", () => {
     const isEnabled = soundToggle.checked;
     apiRequest("/set-sound-enabled", { enabled: isEnabled });
