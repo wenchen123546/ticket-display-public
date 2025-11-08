@@ -1,92 +1,93 @@
 // public/js/superadmin-panel.js
-
+ 
 document.addEventListener("DOMContentLoaded", () => {
     // 【v2.3 修正】 從 sessionStorage 讀取
     const token = sessionStorage.getItem("jwtToken");
-
+ 
     const welcomeMessage = document.getElementById("welcome-message");
     const userListContainer = document.getElementById("user-list-container");
     const logoutButton = document.getElementById("logout-button");
-
+ 
     const newUsernameInput = document.getElementById("new-username");
     const newPasswordInput = document.getElementById("new-password");
     const newRoleInput = document.getElementById("new-role");
     const createUserButton = document.getElementById("create-user-button");
     const createError = document.getElementById("create-error");
-
+ 
     let currentUser = null;
-
+ 
     // --- 1. 驗證與 API 請求 ---
-
+ 
     if (!token) {
         alert("您尚未登入或登入已逾時。");
         window.location.href = "/login.html"; 
         return;
     }
-
+ 
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         currentUser = payload;
         welcomeMessage.textContent = `歡迎， ${currentUser.username} (${currentUser.role})！`;
-
+ 
         if (currentUser.role !== 'superadmin') {
             alert("權限不足。您將被導向回主儀表板。");
             window.location.href = "/admin.html";
             return;
         }
-
-    } catch (e) {
+ 
+    }
+    catch (e) {
         console.error("解碼 Token 失敗:", e);
         sessionStorage.removeItem("jwtToken"); 
         window.location.href = "/login.html";
         return;
     }
-
+ 
     logoutButton.addEventListener("click", () => {
         if (confirm("確定要登出嗎？")) {
             sessionStorage.removeItem("jwtToken"); 
             window.location.href = "/login.html";
         }
     });
-
+ 
     const apiRequest = async (endpoint, method = "POST", body = null) => {
         const headers = {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}` 
         };
-
+ 
         const config = { method, headers };
         if (body) {
             config.body = JSON.stringify(body);
         }
-
+ 
         const res = await fetch(endpoint, config);
         const data = await res.json();
-
+ 
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
                 sessionStorage.removeItem("jwtToken"); 
-                alert("您的登入已過期，請重新登入。");
-                window.location.href = "/login.html";
+                 alert("您的登入已過期，請重新登入。");
+                 window.location.href = "/login.html";
             }
             throw new Error(data.error || "API 請求失敗");
         }
         return data;
     };
-
+ 
     // --- 2. 載入用戶列表 ---
-
+ 
     const renderUserList = (users) => {
         userListContainer.innerHTML = "";
         if (!users || users.length === 0) {
             userListContainer.innerHTML = "<p>目前沒有其他用戶。</p>";
             return;
         }
-
+ 
         users.forEach(user => {
             const item = document.createElement("div");
             item.className = "user-list-item";
-
+ 
             const info = document.createElement("div");
             info.className = "user-info";
             info.textContent = user.username;
@@ -95,33 +96,33 @@ document.addEventListener("DOMContentLoaded", () => {
             roleSpan.textContent = user.role;
             roleSpan.className = `role-${user.role}`;
             info.appendChild(roleSpan);
-
+ 
             item.appendChild(info);
-
+ 
             const controls = document.createElement("div");
             controls.className = "user-list-controls";
-
+ 
             if (user.username !== currentUser.username) {
-                const changePwdButton = document.createElement("button");
-                changePwdButton.type = "button";
-                changePwdButton.className = "btn-secondary";
-                changePwdButton.textContent = "改密碼";
-                changePwdButton.onclick = () => updatePassword(user.username);
+                 const changePwdButton = document.createElement("button");
+                 changePwdButton.type = "button";
+                 changePwdButton.className = "btn-secondary";
+                 changePwdButton.textContent = "改密碼";
+                 changePwdButton.onclick = () => updatePassword(user.username);
                 controls.appendChild(changePwdButton);
-                
-                const deleteButton = document.createElement("button");
-                deleteButton.type = "button";
-                deleteButton.className = "btn-danger";
-                deleteButton.textContent = "刪除";
-                deleteButton.onclick = () => deleteUser(user.username);
+                 
+                 const deleteButton = document.createElement("button");
+                 deleteButton.type = "button";
+                 deleteButton.className = "btn-danger";
+                 deleteButton.textContent = "刪除";
+                 deleteButton.onclick = () => deleteUser(user.username);
                 controls.appendChild(deleteButton);
             }
-
+ 
             item.appendChild(controls);
             userListContainer.appendChild(item);
         });
     };
-
+ 
     const loadUsers = async () => {
         try {
             const data = await apiRequest("/api/admin/users/list", "POST");
@@ -130,12 +131,12 @@ document.addEventListener("DOMContentLoaded", () => {
             userListContainer.innerHTML = `<p style="color: red;">載入用戶列表失敗: ${err.message}</p>`;
         }
     };
-
+ 
     // --- 3. 刪除/修改用戶 ---
-
+ 
     const updatePassword = async (username) => {
         const newPassword = prompt(`請為用戶 "${username}" 輸入一個新密碼：`);
-
+ 
         if (newPassword === null) {
             return; // 使用者按了取消
         }
@@ -145,9 +146,8 @@ document.addEventListener("DOMContentLoaded", () => {
              return;
         }
         
-        // 【v2.3 修正】 移除 8 字元限制
-        // if (newPassword.length < 8) { ... }
-
+        // (已移除 8 字元限制)
+ 
         try {
             const data = await apiRequest("/api/admin/users/update-password", "POST", { username, newPassword });
             alert(data.message || `用戶 ${username} 的密碼已成功更新。`);
@@ -155,12 +155,12 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(`更新密碼失敗: ${err.message}`);
         }
     };
-
+ 
     const deleteUser = async (username) => {
         if (!confirm(`確定要永久刪除用戶 "${username}" 嗎？\n此動作無法復原！`)) {
             return;
         }
-
+ 
         try {
             await apiRequest("/api/admin/users/delete", "POST", { username });
             alert(`用戶 ${username} 已成功刪除。`);
@@ -169,55 +169,52 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(`刪除失敗: ${err.message}`);
         }
     };
-
+ 
     // --- 4. 建立用戶 ---
-
+ 
     const createUserInput = () => {
-        // 【v2.3 修正】 移除 .toLowerCase()
-        const username = newUsernameInput.value.trim();
+        // 【v2.5 修復】 強制使用小寫
+        const username = newUsernameInput.value.trim().toLowerCase();
         const password = newPasswordInput.value.trim();
         const role = newRoleInput.value;
-
+ 
         if (!username || !password || !role) {
             createError.textContent = "所有欄位皆為必填。";
             return;
         }
         
-        // 【v2.3 修正】 移除 8 字元限制
-        // if (password.length < 8) { ... }
+        // (已移除 8 字元限制)
         
-        // 【v2.3 修正】 更新 Regex 以允許中文
-        // \p{L} 允許任何語言的字母 (包含中文)
-        // \p{N} 允許任何語言的數字
-        const usernameRegex = /^[\p{L}\p{N}_]+$/u; 
+        // (已更新 Regex)
+        const usernameRegex = /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/; // 允許中英文、數字、底線
         
         if (!usernameRegex.test(username)) {
-            createError.textContent = "帳號只能包含字母、數字、底線(_)。";
+            createError.textContent = "帳號只能包含中英文、數字和底線(_)。";
             return;
         }
-
+ 
         createUserButton.disabled = true;
         createUserButton.textContent = "建立中...";
         createError.textContent = "";
-
+ 
         apiRequest("/api/admin/users/create", "POST", { username, password, role })
             .then(() => {
-                alert(`用戶 ${username} (${role}) 已成功建立！`);
-                newUsernameInput.value = "";
-                newPasswordInput.value = "";
-                createUserButton.disabled = false;
-                createUserButton.textContent = "建立用戶";
-                loadUsers(); 
+                 alert(`用戶 ${username} (${role}) 已成功建立！`);
+                 newUsernameInput.value = "";
+                 newPasswordInput.value = "";
+                 createUserButton.disabled = false;
+                 createUserButton.textContent = "建立用戶";
+                 loadUsers(); 
             })
             .catch(err => {
-                createError.textContent = `建立失敗: ${err.message}`;
-                createUserButton.disabled = false;
-                createUserButton.textContent = "建立用戶";
+                 createError.textContent = `建立失敗: ${err.message}`;
+                 createUserButton.disabled = false;
+                 createUserButton.textContent = "建立用戶";
             });
     };
-    
+     
     createUserButton.addEventListener("click", createUserInput);
-
+ 
     // --- 5. 初始載入 ---
     loadUsers();
 });
