@@ -10,7 +10,7 @@
     body { padding-top: 30px; }
     #panel-container { max-width: 900px; margin: 0 auto; }
     
-    /* 【v3.2】 將 Div 列表改為 Table 樣式 */
+    /* v3.2 表格樣式 (不變) */
     .user-list-table {
         width: 100%;
         border-collapse: collapse;
@@ -43,7 +43,6 @@
         padding: 6px 10px;
         margin: 0 5px 0 0;
     }
-
     .user-info span {
         display: inline-block;
         padding: 4px 8px;
@@ -54,6 +53,37 @@
     }
     .user-info .role-superadmin { background: var(--color-danger); color: white; }
     .user-info .role-admin { background: var(--color-secondary); color: white; }
+
+    /* 【v3.5】 新增用戶區塊的樣式 */
+    .add-user-section {
+        border-top: 2px solid #eee;
+        margin-top: 25px;
+        padding-top: 20px;
+    }
+    .add-user-section h4 {
+        margin-top: 0;
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+    .add-user-section .control-group {
+        align-items: flex-start; /* 標籤靠左 */
+    }
+    .add-user-section .control-group label {
+        text-align: left; /* 標籤靠左 */
+    }
+    .add-user-section .control-group input,
+    .add-user-section .control-group select {
+        text-align: left; /* 輸入框文字靠左 */
+        padding-left: 10px;
+    }
+    .add-user-section select {
+         width: 100%; 
+         padding: 8px; 
+         font-size: 1.1rem; 
+         margin-top: 10px; 
+    }
+
 </style>
 </head>
 <body>
@@ -87,53 +117,49 @@
  
     <p id="welcome-message" style="text-align: left; font-size: 1.2rem;">正在載入...</p>
  
-    <div class="admin-grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="grid-column">
-            <div class="admin-card">
-                 <h3><span class="card-icon">👥</span> 用戶列表</h3>
-                 
-                 <div id="user-list-container">
-                    <table class="user-list-table">
-                        <thead>
-                            <tr>
-                                <th>用戶</th>
-                                <th>角色</th>
-                                <th>重設密碼</th>
-                                <th>刪除</th>
-                            </tr>
-                        </thead>
-                        <tbody id="user-list-body">
-                            <tr>
-                                <td colspan="4">正在載入列表...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                 </div>
+    <div class="admin-card">
+         <h3><span class="card-icon">👥</span> 用戶管理</h3>
+         
+         <div id="user-list-container">
+            <table class="user-list-table">
+                <thead>
+                    <tr>
+                        <th>用戶</th>
+                        <th>角色</th>
+                        <th>重設密碼</th>
+                        <th>刪除</th>
+                    </tr>
+                </thead>
+                <tbody id="user-list-body">
+                    <tr>
+                        <td colspan="4">正在載入列表...</td>
+                    </tr>
+                </tbody>
+            </table>
+         </div>
+
+         <div class="add-user-section">
+            <h4><span class="card-icon">➕</span> 建立新用戶</h4>
+            
+            <div class="control-group">
+                <label for="new-username">新用戶帳號 (可中文)</label>
+                <input type="text" id="new-username" placeholder="例如: user_a 或 王大明">
             </div>
-        </div>
- 
-        <div class="grid-column">
-            <div class="admin-card">
-                 <h3><span class="card-icon">➕</span> 建立新用戶</h3>
-                 <div class="control-group">
-                     <label for="new-username">新用戶帳號 (可中文)</label>
-                     <input type="text" id="new-username" placeholder="例如: user_a 或 王大明">
-                 </div>
-                 <div class="control-group">
-                     <label for="new-password">新用戶密碼 (至少 8 字元)</label>
-                     <input type="password" id="new-password" placeholder="密碼 (至少 8 字元)">
-                 </div>
-                 <div class="control-group">
-                     <label for="new-role">指派角色</label>
-                     <select id="new-role" style="width: 100%; padding: 8px; font-size: 1.1rem; margin-top: 10px;">
-                         <option value="admin" selected>管理員 (Admin)</option>
-                         <option value="superadmin">超級管理員 (Super Admin)</option>
-                     </select>
-                 </div>
-                 <button id="create-user-button" type="button" class="btn-success">建立用戶</button>
-                 <p id="create-error" style="color: var(--color-danger);"></p>
+            <div class="control-group">
+                <label for="new-password">新用戶密碼 (至少 8 字元)</label>
+                <input type="password" id="new-password" placeholder="密碼 (至少 8 字元)">
             </div>
-        </div>
+            <div class="control-group">
+                <label for="new-role">指派角色</label>
+                <select id="new-role">
+                    <option value="admin" selected>管理員 (Admin)</option>
+                    <option value="superadmin">超級管理員 (Super Admin)</option>
+                </select>
+            </div>
+            <button id="create-user-button" type="button" class="btn-success">建立用戶</button>
+            <p id="create-error" style="color: var(--color-danger);"></p>
+         </div>
+
     </div>
 </div>
  
