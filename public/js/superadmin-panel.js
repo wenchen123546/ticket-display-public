@@ -3,7 +3,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     // 【v2.3 修正】 從 sessionStorage 讀取
     const token = sessionStorage.getItem("jwtToken");
-    // 【v2.3 修正】 移除 removeItem
 
     const welcomeMessage = document.getElementById("welcome-message");
     const userListContainer = document.getElementById("user-list-container");
@@ -38,14 +37,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } catch (e) {
         console.error("解碼 Token 失敗:", e);
-        sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
+        sessionStorage.removeItem("jwtToken"); 
         window.location.href = "/login.html";
         return;
     }
 
     logoutButton.addEventListener("click", () => {
         if (confirm("確定要登出嗎？")) {
-            sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
+            sessionStorage.removeItem("jwtToken"); 
             window.location.href = "/login.html";
         }
     });
@@ -66,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
-                sessionStorage.removeItem("jwtToken"); // 【v2.3 修正】
+                sessionStorage.removeItem("jwtToken"); 
                 alert("您的登入已過期，請重新登入。");
                 window.location.href = "/login.html";
             }
@@ -135,15 +134,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- 3. 刪除/修改用戶 ---
 
     const updatePassword = async (username) => {
-        const newPassword = prompt(`請為用戶 "${username}" 輸入一個新密碼：\n(至少 8 個字元)`);
+        const newPassword = prompt(`請為用戶 "${username}" 輸入一個新密碼：`);
 
-        if (!newPassword) {
-            return; 
+        if (newPassword === null) {
+            return; // 使用者按了取消
         }
-        if (newPassword.length < 8) {
-            alert("密碼長度至少需 8 個字元。");
-            return;
+        
+        if (newPassword.trim().length === 0) {
+             alert("密碼不可為空白。");
+             return;
         }
+        
+        // 【v2.3 修正】 移除 8 字元限制
+        // if (newPassword.length < 8) { ... }
 
         try {
             const data = await apiRequest("/api/admin/users/update-password", "POST", { username, newPassword });
@@ -170,7 +173,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- 4. 建立用戶 ---
 
     const createUserInput = () => {
-        const username = newUsernameInput.value.trim().toLowerCase();
+        // 【v2.3 修正】 移除 .toLowerCase()
+        const username = newUsernameInput.value.trim();
         const password = newPasswordInput.value.trim();
         const role = newRoleInput.value;
 
@@ -179,13 +183,16 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         
-        if (password.length < 8) {
-            createError.textContent = "密碼長度至少需 8 個字元。";
-            return;
-        }
+        // 【v2.3 修正】 移除 8 字元限制
+        // if (password.length < 8) { ... }
         
-        if (!/^[a-z0-9_]+$/.test(username)) {
-            createError.textContent = "帳號只能包含小寫英文、數字和底線(_)。";
+        // 【v2.3 修正】 更新 Regex 以允許中文
+        // \p{L} 允許任何語言的字母 (包含中文)
+        // \p{N} 允許任何語言的數字
+        const usernameRegex = /^[\p{L}\p{N}_]+$/u; 
+        
+        if (!usernameRegex.test(username)) {
+            createError.textContent = "帳號只能包含字母、數字、底線(_)。";
             return;
         }
 
