@@ -17,8 +17,8 @@ const clearLogBtn = document.getElementById("clear-log-btn");
 const resetAllBtn = document.getElementById("resetAll");
 const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
 const saveLayoutBtn = document.getElementById("save-layout-btn"); 
-const toggleLayoutLockBtn = document.getElementById("toggle-layout-lock-btn"); // 【新】
-const superAdminLink = document.getElementById("superadmin-link"); // 【新】
+const toggleLayoutLockBtn = document.getElementById("toggle-layout-lock-btn"); 
+const superAdminLink = document.getElementById("superadmin-link"); 
 
 // --- 2. 全域變數 ---
 let token = ""; 
@@ -26,7 +26,7 @@ let resetAllTimer = null;
 let grid = null; 
 let toastTimer = null; 
 let currentUser = null; 
-let isLayoutLocked = true; // 【新】 預設為鎖定
+let isLayoutLocked = true; // 預設為鎖定
 
 // --- 3. Socket.io ---
 const socket = io({ 
@@ -39,20 +39,25 @@ const socket = io({
 // --- 4. 【v2 重構】 登入/顯示邏輯 ---
 
 document.addEventListener("DOMContentLoaded", () => {
+    // 【需求 2 修正】 讀取後立刻銷毀 Token，強制重整時需重登
     token = localStorage.getItem("jwtToken");
+    localStorage.removeItem("jwtToken"); // <-- 關鍵！
+    sessionStorage.removeItem("jwtToken"); // (順便清除 session)
 
     if (!token) {
-        alert("您尚未登入。");
-        window.location.href = "/login.html"; 
+        // 1. 沒有 Token (因為剛開啟，或按了 F5) -> 強制轉跳到 v2 登入頁面
+        alert("您尚未登入或登入已逾時。");
+        window.location.href = "/login.html"; // 轉到新的登入頁
         return;
     }
 
+    // 2. 解碼 Token 以取得用戶資訊
     try {
         currentUser = JSON.parse(atob(token.split('.')[1]));
         console.log("已登入用戶:", currentUser);
     } catch (e) {
+        // 3. Token 格式錯誤 -> 登出
         alert("Token 格式錯誤，請重新登入。");
-        localStorage.removeItem("jwtToken");
         window.location.href = "/login.html";
         return;
     }
@@ -68,12 +73,10 @@ async function showPanel() {
     document.title = "後台管理 - 控制台";
     socket.connect(); 
 
-    // 【新】 需求 3：根據權限顯示「超級管理員」按鈕
     if (superAdminLink && currentUser.role === 'superadmin') {
         superAdminLink.style.display = 'block';
     }
 
-    // (載入排版)
     let savedLayout = null;
     try {
         const response = await apiRequest("/api/layout/load", {}, true); 
@@ -95,15 +98,17 @@ async function showPanel() {
             minRow: 1,          
             float: true,      
             removable: false,   
-            alwaysShowResizeHandle: 'mobile' 
+            alwaysShowResizeHandle: 'mobile',
+            // 【需求 1 修正】 預設禁用拖移和縮放
+            disableDrag: true,
+            disableResize: true,
         });
         
         if (savedLayout) {
             grid.load(savedLayout);
         }
-
-        // 【新】 需求 2：預設鎖定儀表板
-        grid.disable();
+        
+        // (移除 grid.disable()，因為已在 init 中設定)
         
     }, 100); 
 }
@@ -135,7 +140,7 @@ socket.on("disconnect", () => {
 socket.on("connect_error", (err) => {
     console.error("Socket 連線失敗:", err.message);
     alert("Socket 驗證失敗，您的登入可能已過期，請重新登入。");
-    localStorage.removeItem("jwtToken");
+    // (移除 localStorage.removeItem，因為 DOMContentLoaded 已經做過了)
     window.location.href = "/login.html";
 });
 socket.on("initAdminLogs", (logs) => {
@@ -182,14 +187,17 @@ async function apiRequest(endpoint, body = {}, a_returnResponse = false) {
             body: JSON.stringify(body), 
         });
         
+        // 【需求 2 修正】 如果 Token 過期，立刻跳轉
+        if (res.status === 401 || res.status === 403) {
+            alert("權限不足或登入已過期，請重新登入。");
+            // (移除 localStorage.removeItem)
+            window.location.href = "/login.html";
+            return false; // 中斷請求
+        }
+        
         const responseData = await res.json(); 
 
         if (!res.ok) {
-            if (res.status === 401 || res.status === 403) {
-                alert("權限不足或登入已過期，請重新登入。");
-                localStorage.removeItem("jwtToken");
-                window.location.href = "/login.html";
-            }
             const errorMsg = responseData.error || "未知錯誤";
             showToast(`❌ API 錯誤: ${errorMsg}`, "error");
             alert("發生錯誤：" + errorMsg);
@@ -418,9 +426,10 @@ if (saveLayoutBtn) {
         
         if (success) {
             showToast("✅ 排版已成功儲存！", "success");
-            // 儲存後自動鎖定
+            // 【需求 1 修正】 儲存後自動鎖定
             if (!isLayoutLocked) {
-                grid.disable();
+                grid.enableMove(false);
+                grid.enableResize(false);
                 isLayoutLocked = true;
                 toggleLayoutLockBtn.textContent = "🔓 解鎖排版";
             }
@@ -428,17 +437,19 @@ if (saveLayoutBtn) {
     });
 }
 
-// 【新】 需求 2：綁定鎖定/解鎖按鈕
+// 【需求 1 修正】 綁定鎖定/解鎖按鈕
 if (toggleLayoutLockBtn) {
     toggleLayoutLockBtn.addEventListener("click", () => {
         if (!grid) return;
         
         if (isLayoutLocked) {
-            grid.enable();
+            grid.enableMove(true);
+            grid.enableResize(true);
             toggleLayoutLockBtn.textContent = "🔒 鎖定排版";
             showToast("ℹ️ 儀表板已解鎖，您可以拖移卡片。", "info");
         } else {
-            grid.disable();
+            grid.enableMove(false);
+            grid.enableResize(false);
             toggleLayoutLockBtn.textContent = "🔓 解鎖排版";
             showToast("ℹ️ 儀表板已鎖定。", "info");
         }
