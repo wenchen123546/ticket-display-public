@@ -314,10 +314,18 @@ body.is-closed #maintenance-overlay {
         --font-featured: clamp(0.9rem, 4vw, 1.1rem); 
     }
 
-    /* 2. 減少 body 邊距 */
+    /* 2. 減少 body 邊距並設定最小高度 */
     body {
         padding: 15px;
         padding-top: 20px;
+        
+        /* 【修改】 讓 body 至少填滿整個螢幕高度 */
+        min-height: 100vh; 
+        box-sizing: border-box; /* 確保 padding 不會讓 vh 溢出 */
+
+        /* 【修改】 將彈性 (flex) 剩餘空間
+           平均分配到主要區塊的「周圍」，解決底部太空問題 */
+        justify-content: space-around; 
     }
 
     /* 3. 【核心】將 .content-wrapper 改為 2 欄網格 */
