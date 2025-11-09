@@ -306,8 +306,9 @@ body.is-closed #maintenance-overlay {
         --font-h2: clamp(1.2rem, 5vw, 1.4rem);  /* 縮小 "目前號碼" */
         --font-h3: clamp(1.1rem, 4vw, 1.3rem);  /* 縮小 "已過號" */
         
-        /* 將主要號碼縮小以符合 2 欄佈局 */
-        --font-number: clamp(6rem, 25vw, 8rem); 
+        /* 【修改】 將主要號碼極致放大，以填補垂直空間 */
+        --font-number: clamp(10rem, 40vw, 15rem); 
+        
         /* 縮小過號字體 */
         --font-passed: clamp(1.5rem, 6vw, 2rem);
         /* 縮小精選連結字體 */
@@ -328,18 +329,18 @@ body.is-closed #maintenance-overlay {
         justify-content: space-around; 
     }
 
-    /* 3. 【核心】將 .content-wrapper 改為 2 欄網格 */
+    /* 3. 【修改】將 .content-wrapper 改回垂直堆疊 */
     .content-wrapper {
-        display: grid;
-        grid-template-columns: 1fr 1fr; /* 左右 2 欄 */
-        align-items: start; /* 頂部對齊 */
-        gap: 10px; /* 縮小卡片間距 */
+        /* 恢復堆疊，不再使用 grid */
+        display: flex;
+        flex-direction: column;
+        gap: 15px; /* 堆疊時的卡片間距 */
     }
     
-    /* 4. 縮小卡片內距，並讓 2 欄卡片等高 */
+    /* 4. 縮小卡片內距 */
     .card {
         padding: 10px; /* 縮小內距 */
-        height: 100%; /* 關鍵：讓左右卡片等高 */
+        /* 【修改】 移除 height: 100%，讓卡片高度自適應 */
     }
 
     /* 5. 讓過號列表更緊湊 */
