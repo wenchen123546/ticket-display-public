@@ -1,4 +1,4 @@
-// public/js/admin.js (v3.17 RWD 最終修復)
+// public/js/admin.js (v3.18 RWD 最終修復)
 
 // --- 1. 元素節點 (DOM) ---
 const adminPanel = document.getElementById("admin-panel");
@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
     showPanel();
 });
  
-// --- showPanel (v3.17 RWD 最終修復) ---
+// --- showPanel (v3.18 RWD 最終修復) ---
 async function showPanel() {
     adminPanel.style.display = "block";
     document.title = "後台管理 - 控制台";
@@ -110,7 +110,7 @@ async function showPanel() {
         showToast(`❌ 讀取排版失敗: ${e.message}`, "error");
     }
  
-    // --- 【v3.17 RWD 最終修復】 ---
+    // --- 【v3.18 RWD 最終修復】 ---
     // 只有在桌機版 (寬度 > 768) 且有儲存排版時，才載入
     if (savedLayout && window.innerWidth > 768) {
         grid.load(savedLayout);
