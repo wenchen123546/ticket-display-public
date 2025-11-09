@@ -163,18 +163,6 @@ h1 { font-size: var(--font-h1); color: var(--color-danger); margin: 0; }
 #qr-code-placeholder canvas { width: 100% !important; height: 100% !important; }
 #qr-code-container p { margin: 5px 0 0 0; font-size: 0.8rem; color: var(--color-text); }
 
-/* 【修改】 移除所有浮動按鈕 (mute, copy) 的 CSS */
-
-@media (max-width: 768px) {
-    .content-wrapper { gap: 15px; } 
-    .card { padding: 15px; }
-    #qr-code-container { 
-        display: none; 
-    }
-    
-    /* 【修改】 移除 RWD 中所有浮動按鈕的 CSS */
-}
-
 #status-bar { 
     position: fixed; 
     top: 0; 
@@ -302,4 +290,83 @@ body.is-closed #maintenance-overlay {
     color: white;
 }
 
-/* 【修改】 移除 RWD 區塊 (因為按鈕已在流程中，會自動換行) */
+/* --- 【修改】 強化 RWD 區塊 --- */
+@media (max-width: 768px) {
+    
+    /* (原有的 RWD 規則) */
+    #qr-code-container { 
+        display: none; 
+    }
+    
+    /* --- NEW OPTIMIZATIONS --- */
+
+    /* 1. 覆蓋 :root 變數，全面縮小字體 */
+    :root {
+        --font-h1: clamp(1.3rem, 5vw, 1.6rem); /* 縮小 "熱血不宜攔！" */
+        --font-h2: clamp(1.2rem, 5vw, 1.4rem);  /* 縮小 "目前號碼" */
+        --font-h3: clamp(1.1rem, 4vw, 1.3rem);  /* 縮小 "已過號" */
+        
+        /* 將主要號碼縮小以符合 2 欄佈局 */
+        --font-number: clamp(6rem, 25vw, 8rem); 
+        /* 縮小過號字體 */
+        --font-passed: clamp(1.5rem, 6vw, 2rem);
+        /* 縮小精選連結字體 */
+        --font-featured: clamp(0.9rem, 4vw, 1.1rem); 
+    }
+
+    /* 2. 減少 body 邊距 */
+    body {
+        padding: 15px;
+        padding-top: 20px;
+    }
+
+    /* 3. 【核心】將 .content-wrapper 改為 2 欄網格 */
+    .content-wrapper {
+        display: grid;
+        grid-template-columns: 1fr 1fr; /* 左右 2 欄 */
+        align-items: start; /* 頂部對齊 */
+        gap: 10px; /* 縮小卡片間距 */
+    }
+    
+    /* 4. 縮小卡片內距，並讓 2 欄卡片等高 */
+    .card {
+        padding: 10px; /* 縮小內距 */
+        height: 100%; /* 關鍵：讓左右卡片等高 */
+    }
+
+    /* 5. 讓過號列表更緊湊 */
+    #passedList {
+        gap: 6px; /* 縮小號碼間距 */
+    }
+    #passedList li {
+        padding: 4px 8px; /* 縮小號碼內距 */
+        min-width: 30px;
+        border-radius: 6px;
+    }
+    /* 讓空狀態文字小一點 */
+    .empty-state-message {
+        font-size: 1rem;
+    }
+
+
+    /* 6. 縮小功能按鈕 (複製/音效) */
+    .utility-buttons {
+        margin: 15px 0 0 0; /* 縮小上方間距 */
+        gap: 10px;
+    }
+    #sound-prompt,
+    #copy-link-prompt {
+        padding: 8px 15px;
+        font-size: 0.9rem;
+    }
+    
+    /* 7. 縮小精選連結區塊 */
+    #featured-container {
+        margin-top: 15px; /* 縮小上方間距 */
+        gap: 8px;
+    }
+    .featured-link {
+        padding: 8px 15px;
+    }
+
+}
