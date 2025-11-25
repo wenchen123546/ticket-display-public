@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v5.0 Final Overflow Fix
+ * 後台樣式 (admin.css) - v5.1 User Layout Fix
  * ==========================================
  */
 
@@ -46,7 +46,7 @@ html, body {
     margin: 0; padding: 0;
     width: 100%; 
     min-height: 100vh;
-    overflow-x: hidden; /* ★ 核心修正：禁止整頁橫向捲動 */
+    overflow-x: hidden; 
 }
 
 body {
@@ -121,10 +121,9 @@ body {
 .dashboard-item:nth-child(2)::after { background: var(--success); }
 .dashboard-item:nth-child(3)::after { background: var(--warning); }
 
-/* --- 4. 卡片系統 (★ Grid 修正核心) --- */
+/* --- 4. 卡片系統 --- */
 .card-container { 
     display: grid; 
-    /* ★ minmax(0, 1fr) 是防止 Grid 被內容(如圖表)撐開的關鍵 */
     grid-template-columns: repeat(auto-fit, minmax(340px, minmax(0, 1fr))); 
     gap: 24px; 
     align-items: stretch; 
@@ -133,14 +132,14 @@ body {
 .full-width-card { grid-column: 1 / -1; }
 .card-wrapper { 
     height: 100%; display: flex; flex-direction: column; 
-    min-width: 0; /* ★ 防止 Flex 子元素溢出 */
+    min-width: 0; 
 }
 
 .admin-card {
     background: var(--bg-surface); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-card);
     height: 100%; display: flex; flex-direction: column; border: 1px solid white;
-    overflow: hidden; /* ★ 確保內容不會跑出卡片 */
-    min-width: 0;     /* ★ 防止 Flex 子元素溢出 */
+    overflow: hidden; 
+    min-width: 0;     
 }
 .admin-card h3 {
     margin: 0 0 20px 0; font-size: 1.1rem; color: var(--text-main); font-weight: 700;
@@ -182,7 +181,7 @@ textarea { width: 100%; border: 1px solid var(--border-color); border-radius: va
 .sound-toggle-group, .system-toggle-group { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: var(--radius-md); background: #f9fafb; border: 1px solid var(--border-color); margin-bottom: 15px; cursor: pointer; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
 
-/* --- 6. 列表與日誌 (★ 文字溢出修復核心) --- */
+/* --- 6. 列表與日誌 --- */
 ul { list-style: none; padding: 0; margin: 0; }
 .list-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
@@ -196,31 +195,30 @@ li {
     padding: 10px 14px; border-bottom: 1px solid #f3f4f6; 
     display: flex; justify-content: space-between; align-items: center; 
     font-size: 0.9rem; color: var(--text-sub); gap: 10px;
-    min-width: 0; /* ★ 防止內容撐開容器 */
+    min-width: 0;
 }
 li:last-child { border-bottom: none; }
 
-/* ★ 強制長文字換行 */
 li span, .list-editor span, #admin-log-ui li {
     word-break: break-all;      
     overflow-wrap: anywhere;    
     white-space: normal;        
     min-width: 0;               
     flex: 1;       
-    width: 0; /* ★ 這是讓 flex item 正確縮小換行的魔法設定 */             
+    width: 0;
 }
 
 .admin-log-container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 #admin-log-ui { flex: 1; min-height: 150px; background: #1f2937; border: none; font-family: monospace; }
 #admin-log-ui li { color: #d1d5db; border-bottom: 1px solid #374151; font-size: 0.85rem; display: block; padding: 8px 12px; }
 
-/* --- 7. 圖表 (★ 圖表溢出修復核心) --- */
+/* --- 7. 圖表 --- */
 .chart-container { 
     height: 180px; display: flex; align-items: flex-end; gap: 4px; margin-bottom: 20px; 
     padding-top: 20px; 
-    width: 100%;        /* ★ 限制寬度 */
-    max-width: 100%;    /* ★ 雙重保險 */
-    overflow-x: auto;   /* ★ 內部捲動，不撐開整頁 */
+    width: 100%;        
+    max-width: 100%;    
+    overflow-x: auto;   
 }
 .chart-col { flex: 1; min-width: 18px; display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; }
 .chart-bar { width: 100%; background: #cbd5e1; border-radius: 3px 3px 0 0; min-height: 4px; transition: height 0.4s ease; }
@@ -246,7 +244,7 @@ li span, .list-editor span, #admin-log-ui li {
  * ==========================================
  */
 @media (max-width: 768px) {
-    /* 1. Sidebar 底部固定 */
+    /* 1. Sidebar */
     .sidebar {
         width: 100%; height: var(--mobile-nav-height);
         top: auto; bottom: 0; left: 0;
@@ -259,41 +257,36 @@ li span, .list-editor span, #admin-log-ui li {
     .nav-btn .nav-icon { margin: 0; font-size: 1.4rem; display: block; }
     .nav-btn.active { color: var(--primary); background: transparent; box-shadow: inset 0 3px 0 var(--primary); }
 
-    /* 2. Content Area - 縮減 Padding 以爭取空間 */
+    /* 2. Content */
     .content-area {
         margin-left: 0; 
-        padding: 15px; /* 原本30px改為15px */
+        padding: 15px; 
         padding-bottom: calc(var(--mobile-nav-height) + 30px);
         width: 100%;
         overflow-x: hidden;
     }
 
-    /* 3. 儀表板 & 卡片 */
+    /* 3. Dashboard */
     .dashboard-header { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     .dashboard-item { padding: 15px; }
     .dashboard-item:last-child { grid-column: 1 / -1; } 
     .big-number { font-size: 2.8rem; }
     .card-container { grid-template-columns: minmax(0, 1fr); }
     
-    /* 4. ★ 修復輸入框擠壓問題：強制 JS 生成的 .input-row 變垂直 */
+    /* 4. 強制輸入框垂直 (JS 生成元素修正) */
     .input-row, .input-group, .big-action-row {
-        flex-direction: column !important; /* 強制垂直 */
+        flex-direction: column !important;
         width: 100% !important;
     }
-    /* 讓所有輸入框和按鈕都滿寬 */
-    .input-row > *, .input-group > * {
-        width: 100% !important;
-        margin: 5px 0;
-    }
-    .btn-add { height: 44px; font-size: 1.8rem; } /* 調整加號按鈕高度 */
+    .input-row > *, .input-group > * { width: 100% !important; margin: 5px 0; }
+    .btn-add { height: 44px; font-size: 1.8rem; } 
 
     #btn-call-next { min-width: 100%; order: -1; margin-bottom: 8px; }
     .btn-big { min-width: 100%; }
 
-    /* 5. LINE 設定強制單欄 */
+    /* 5. LINE & List */
     #card-line-settings .admin-card { grid-template-columns: 1fr !important; }
     #card-line-settings details { grid-column: 1 !important; }
-    
     li { flex-wrap: wrap; }
 }
 
@@ -307,9 +300,38 @@ li span, .list-editor span, #admin-log-ui li {
     #card-calling .big-action-row { margin-bottom: 15px; }
     #btn-call-next { flex: 1.5; }
 
-    #card-user-management .list-editor { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; align-items: start; max-height: none; overflow: visible; }
-    #card-user-management .list-editor ul { margin-bottom: 0; max-height: 400px; }
-    #card-user-management .input-group.vertical { background: #f9fafb; padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+    /* ★ 修正管理員帳號 Grid 錯位問題的核心代碼 ★ */
+    #card-user-management .list-editor {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        grid-template-rows: auto 1fr; /* 定義兩列高度，自動對齊 */
+        gap: 10px 24px;
+        align-items: start;
+        max-height: none;
+        overflow: visible;
+    }
+    /* 列表佔據左側全部 */
+    #card-user-management .list-editor ul {
+        grid-column: 1;
+        grid-row: 1 / -1;
+        margin-bottom: 0;
+        max-height: 400px;
+    }
+    /* 標題在右側第一列 */
+    #card-user-management .list-editor > label {
+        grid-column: 2;
+        grid-row: 1;
+        margin-bottom: 0;
+    }
+    /* 輸入框在右側第二列 */
+    #card-user-management .list-editor > .input-group {
+        grid-column: 2;
+        grid-row: 2;
+        background: #f9fafb;
+        padding: 20px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+    }
 
     /* LINE 設定雙欄 */
     #card-line-settings .admin-card { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-content: start; }
@@ -323,7 +345,6 @@ li span, .list-editor span, #admin-log-ui li {
 
 @media (min-width: 1440px) {
     .card-container { grid-template-columns: repeat(3, 1fr); }
-    /* 大螢幕時，數據分析與日誌佔 2/3 寬度，避免過大 */
     #card-stats.full-width-card, 
     #card-logs.full-width-card { 
         grid-column: span 2; 
