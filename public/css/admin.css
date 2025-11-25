@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v5.1 User Layout Fix
+ * 後台樣式 (admin.css) - v5.2 Desktop Layout Fix
  * ==========================================
  */
 
@@ -181,15 +181,33 @@ textarea { width: 100%; border: 1px solid var(--border-color); border-radius: va
 .sound-toggle-group, .system-toggle-group { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: var(--radius-md); background: #f9fafb; border: 1px solid var(--border-color); margin-bottom: 15px; cursor: pointer; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
 
-/* --- 6. 列表與日誌 --- */
+/* --- 6. 列表與日誌 (★ 核心修復：使用 Flex 自動填滿高度) --- */
 ul { list-style: none; padding: 0; margin: 0; }
-.list-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
-.list-editor ul, #admin-log-ui, #stats-list-ui, #online-users-list, #user-list-ui {
-    background: #f9fafb; border-radius: var(--radius-md); border: 1px solid #f3f4f6;
-    max-height: 220px; min-height: 100px; overflow-y: auto; margin-bottom: 12px;
+.list-editor { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    min-width: 0; 
+    min-height: 0; /* 讓子元素可以縮小 */
 }
-#passed-list-ui, #featured-list-ui { flex: 1; min-height: 150px; max-height: 300px; }
+
+/* 讓列表自動填滿空間，並加上卷軸 */
+.list-editor ul, #admin-log-ui, #stats-list-ui, #online-users-list, #user-list-ui {
+    flex: 1; /* 自動佔據剩餘空間 */
+    background: #f9fafb; 
+    border-radius: var(--radius-md); 
+    border: 1px solid #f3f4f6;
+    overflow-y: auto; /* 內部卷軸 */
+    margin-bottom: 12px;
+    min-height: 150px; /* 最小高度保護 */
+    max-height: none;  /* 移除固定高度限制 */
+}
+
+/* 特殊列表：讓日誌和過號名單在卡片中盡可能延伸 */
+#passed-list-ui, #featured-list-ui, #admin-log-ui {
+    max-height: 500px; /* PC 上給一個較大的上限，避免無限延伸 */
+}
 
 li { 
     padding: 10px 14px; border-bottom: 1px solid #f3f4f6; 
@@ -208,17 +226,14 @@ li span, .list-editor span, #admin-log-ui li {
     width: 0;
 }
 
-.admin-log-container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-#admin-log-ui { flex: 1; min-height: 150px; background: #1f2937; border: none; font-family: monospace; }
+.admin-log-container { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+#admin-log-ui { flex: 1; min-height: 200px; background: #1f2937; border: none; font-family: monospace; }
 #admin-log-ui li { color: #d1d5db; border-bottom: 1px solid #374151; font-size: 0.85rem; display: block; padding: 8px 12px; }
 
 /* --- 7. 圖表 --- */
 .chart-container { 
     height: 180px; display: flex; align-items: flex-end; gap: 4px; margin-bottom: 20px; 
-    padding-top: 20px; 
-    width: 100%;        
-    max-width: 100%;    
-    overflow-x: auto;   
+    padding-top: 20px; width: 100%; max-width: 100%; overflow-x: auto;   
 }
 .chart-col { flex: 1; min-width: 18px; display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; }
 .chart-bar { width: 100%; background: #cbd5e1; border-radius: 3px 3px 0 0; min-height: 4px; transition: height 0.4s ease; }
@@ -240,51 +255,32 @@ li span, .list-editor span, #admin-log-ui li {
 
 /*
  * ==========================================
- * [手機響應式優化] (Mobile Fixes)
+ * [手機響應式優化]
  * ==========================================
  */
 @media (max-width: 768px) {
-    /* 1. Sidebar */
-    .sidebar {
-        width: 100%; height: var(--mobile-nav-height);
-        top: auto; bottom: 0; left: 0;
-        flex-direction: row; border-right: none; border-top: 1px solid var(--border-color);
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.05); position: fixed;
-    }
+    .sidebar { width: 100%; height: var(--mobile-nav-height); top: auto; bottom: 0; left: 0; flex-direction: row; border-right: none; border-top: 1px solid var(--border-color); box-shadow: 0 -4px 20px rgba(0,0,0,0.05); position: fixed; }
     .sidebar-header, .sidebar-footer { display: none; }
     .sidebar-nav { flex-direction: row; width: 100%; padding: 0; gap: 0; overflow: visible; }
     .nav-btn { flex-direction: column; justify-content: center; align-items: center; border-radius: 0; padding: 6px 0; font-size: 0.7rem; flex: 1; text-align: center; gap: 4px; background: transparent; }
     .nav-btn .nav-icon { margin: 0; font-size: 1.4rem; display: block; }
     .nav-btn.active { color: var(--primary); background: transparent; box-shadow: inset 0 3px 0 var(--primary); }
 
-    /* 2. Content */
-    .content-area {
-        margin-left: 0; 
-        padding: 15px; 
-        padding-bottom: calc(var(--mobile-nav-height) + 30px);
-        width: 100%;
-        overflow-x: hidden;
-    }
+    .content-area { margin-left: 0; padding: 15px; padding-bottom: calc(var(--mobile-nav-height) + 30px); width: 100%; overflow-x: hidden; }
 
-    /* 3. Dashboard */
     .dashboard-header { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     .dashboard-item { padding: 15px; }
     .dashboard-item:last-child { grid-column: 1 / -1; } 
     .big-number { font-size: 2.8rem; }
     .card-container { grid-template-columns: minmax(0, 1fr); }
     
-    /* 4. 強制輸入框垂直 (JS 生成元素修正) */
-    .input-row, .input-group, .big-action-row {
-        flex-direction: column !important;
-        width: 100% !important;
-    }
+    .input-row, .input-group, .big-action-row { flex-direction: column !important; width: 100% !important; }
     .input-row > *, .input-group > * { width: 100% !important; margin: 5px 0; }
     .btn-add { height: 44px; font-size: 1.8rem; } 
 
     #btn-call-next { min-width: 100%; order: -1; margin-bottom: 8px; }
     .btn-big { min-width: 100%; }
 
-    /* 5. LINE & List */
     #card-line-settings .admin-card { grid-template-columns: 1fr !important; }
     #card-line-settings details { grid-column: 1 !important; }
     li { flex-wrap: wrap; }
@@ -300,31 +296,33 @@ li span, .list-editor span, #admin-log-ui li {
     #card-calling .big-action-row { margin-bottom: 15px; }
     #btn-call-next { flex: 1.5; }
 
-    /* ★ 修正管理員帳號 Grid 錯位問題的核心代碼 ★ */
+    /* ★ 修正：管理員帳號佈局 - 左列表，右輸入 */
     #card-user-management .list-editor {
         display: grid;
         grid-template-columns: 1.5fr 1fr;
-        grid-template-rows: auto 1fr; /* 定義兩列高度，自動對齊 */
-        gap: 10px 24px;
+        grid-template-rows: auto 1fr;
+        gap: 24px;
         align-items: start;
         max-height: none;
         overflow: visible;
+        flex: none; /* 關閉 flex 讓 grid 生效 */
     }
-    /* 列表佔據左側全部 */
+    /* 1. 列表：固定在左側，佔滿兩列 */
     #card-user-management .list-editor ul {
         grid-column: 1;
         grid-row: 1 / -1;
         margin-bottom: 0;
-        max-height: 400px;
+        height: 100%;
+        max-height: 500px; /* 限制最大高度，避免太長 */
     }
-    /* 標題在右側第一列 */
+    /* 2. 標題：右側第一列 */
     #card-user-management .list-editor > label {
         grid-column: 2;
         grid-row: 1;
         margin-bottom: 0;
     }
-    /* 輸入框在右側第二列 */
-    #card-user-management .list-editor > .input-group {
+    /* 3. 輸入框：右側第二列 */
+    #card-user-management .list-editor > .input-group.vertical {
         grid-column: 2;
         grid-row: 2;
         background: #f9fafb;
