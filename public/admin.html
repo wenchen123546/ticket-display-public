@@ -7,7 +7,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/admin.css"> 
 </head>
 <body>
@@ -103,6 +103,11 @@
                             
                             <div class="control-group">
                                 <label for="manualNumber">指定跳號 / 插隊</label>
+                                <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                    <button type="button" class="btn-secondary" id="quick-add-1" style="flex:1;">+1</button>
+                                    <button type="button" class="btn-secondary" id="quick-add-5" style="flex:1;">+5</button>
+                                    <button type="button" class="btn-secondary" id="quick-clear" style="flex:1; background:#f3f4f6; color:#666;">C</button>
+                                </div>
                                 <div class="input-group">
                                     <input type="number" id="manualNumber" placeholder="輸入號碼" inputmode="numeric" pattern="\d*"/>
                                     <button id="setNumber" type="button" class="btn-secondary" data-i18n="btn_set">執行</button>
@@ -132,14 +137,15 @@
                                     <button id="setIssuedNumber" type="button" class="btn-secondary" data-i18n="btn_set">修正</button>
                                 </div>
                             </div>
+                            <button id="resetIssued" type="button" class="btn-reset-single">↺ 重置發號歸零</button>
                         </div>
                     </div>
 
                     <div class="card-wrapper" id="card-editor">
                         <div class="admin-card">
                             <h3><span class="card-icon">📝</span> <span data-i18n="card_title_editor">過號名單</span></h3>
-                            <div class="control-group list-editor" style="flex:1; display:flex; flex-direction:column;">
-                                <ul id="passed-list-ui" style="flex:1;"></ul>
+                            <div class="control-group list-editor">
+                                <ul id="passed-list-ui"></ul>
                                 <div class="input-group">
                                     <input type="number" id="new-passed-number" placeholder="手動加入" inputmode="numeric">
                                     <button id="add-passed-btn" type="button" class="btn-add">+</button>
@@ -175,7 +181,7 @@
                             <label style="margin-top:20px;">最近 100 筆紀錄</label>
                             <ul id="stats-list-ui"><li>(載入中...)</li></ul>
                             
-                            <button id="btn-clear-stats" type="button" class="btn-reset-single" style="border-color:#ef4444; color:#ef4444;">⚠ 清空統計資料</button>
+                            <button id="btn-clear-stats" type="button" class="btn-reset-single">⚠ 清空統計資料</button>
                         </div>
                     </div>
                     
@@ -185,7 +191,7 @@
                             <div class="control-group admin-log-container">
                                 <ul id="admin-log-ui"><li>等待連線...</li></ul>
                             </div>
-                            <button id="btn-clear-logs" type="button" class="btn-reset-single" style="margin-top: 10px;">清除所有日誌</button>
+                            <button id="btn-clear-logs" type="button" class="btn-reset-single">清除所有日誌</button>
                         </div>
                     </div>
                 </div>
@@ -227,7 +233,7 @@
                                 </div>
                             </div>
 
-                            <button id="resetAll" type="button" class="btn-reset-single" style="border: 2px solid #ef4444; color:#ef4444; font-weight:bold; margin-top:auto;" data-i18n="btn_reset_all">💥 系統全域重置 (危險)</button>
+                            <button id="resetAll" type="button" class="btn-reset-single" data-i18n="btn_reset_all">💥 系統全域重置 (危險)</button>
                         </div>
                     </div>
 
@@ -249,12 +255,12 @@
                                 <ul id="featured-list-ui"></ul>
                                 <div class="input-group vertical">
                                     <input type="text" id="new-link-text" placeholder="顯示名稱 (例如: 填寫表單)">
-                                    <div class="input-row" style="display:flex; gap:10px;">
+                                    <div class="input-group">
                                         <input type="text" id="new-link-url" placeholder="https://...">
                                         <button id="add-featured-btn" type="button" class="btn-add">+</button>
                                     </div>
                                 </div>
-                                <button id="resetFeaturedContents" type="button" class="btn-reset-single" style="margin-top:10px;">清空連結</button>
+                                <button id="resetFeaturedContents" type="button" class="btn-reset-single">清空連結</button>
                             </div>
                         </div>
                     </div>
