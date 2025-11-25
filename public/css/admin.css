@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v4.0 Mobile Fixed & Optimized
+ * 後台樣式 (admin.css) - v4.2 Layout Fixes
  * ==========================================
  */
 
@@ -49,13 +49,13 @@ body {
     margin: 0; padding: 0;
     width: 100%; 
     min-height: 100vh;
-    overflow-x: hidden; /* 關鍵：防止手機版橫向卷軸 */
+    overflow-x: hidden; /* 防止橫向卷軸 */
     font-size: 15px; 
 }
 
-/* --- 1. 登入介面優化 --- */
+/* --- 1. 登入介面 --- */
 #login-container { 
-    position: absolute; /* 改為 absolute 以支援手機鍵盤彈出時的滾動 */
+    position: absolute; 
     top: 50%; left: 50%; 
     transform: translate(-50%, -50%); 
     width: 90%; max-width: 400px; 
@@ -64,7 +64,7 @@ body {
     box-shadow: 0 20px 50px rgba(0,0,0,0.1); 
     text-align: center; z-index: 3000; 
     max-height: 90vh; 
-    overflow-y: auto; /* 防止高度不足時內容被切掉 */
+    overflow-y: auto; 
 }
 
 .login-header h1 { color: var(--primary); margin-bottom: 5px; }
@@ -73,58 +73,34 @@ body {
 .btn-primary:active { transform: scale(0.98); }
 
 /* --- 2. 佈局架構 --- */
-#admin-panel {
-    width: 100%;
-    min-height: 100vh;
-    display: flex;
-}
-
+#admin-panel { width: 100%; min-height: 100vh; display: flex; }
 .admin-layout { display: flex; width: 100%; min-height: 100vh; }
 
-/* PC 版 Sidebar */
+/* PC Sidebar */
 .sidebar {
-    width: var(--sidebar-width);
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-color);
-    display: flex; flex-direction: column;
-    height: 100vh; 
-    position: fixed; /* 固定在左側 */
-    left: 0; top: 0;
-    z-index: 100;
+    width: var(--sidebar-width); background: var(--bg-sidebar); border-right: 1px solid var(--border-color);
+    display: flex; flex-direction: column; height: 100vh; position: fixed; left: 0; top: 0; z-index: 100;
 }
-
 .sidebar-header { padding: 24px 20px; }
 .sidebar-header .logo { font-size: 1.4rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 8px; }
 .sidebar-header .user-info { font-size: 0.85rem; color: var(--text-sub); margin-top: 4px; font-weight: 500; }
-
 .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
-
 .nav-btn {
-    width: 100%; padding: 12px 16px;
-    display: flex; align-items: center;
-    background: transparent; border: none; border-radius: var(--radius-md);
-    color: var(--text-sub); font-size: 0.95rem; font-weight: 600;
-    cursor: pointer; transition: all 0.2s ease;
-    text-align: left;
+    width: 100%; padding: 12px 16px; display: flex; align-items: center; background: transparent; border: none; border-radius: var(--radius-md);
+    color: var(--text-sub); font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; text-align: left;
 }
 .nav-btn .nav-icon { margin-right: 12px; font-size: 1.25rem; min-width: 24px; text-align: center; }
 .nav-btn.active { background: #eef2ff; color: var(--primary); }
 .nav-btn:hover:not(.active) { background: #f9fafb; color: var(--text-main); }
-
 .sidebar-footer { padding: 16px; border-top: 1px solid var(--border-color); }
 .lang-select { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: white; font-size: 0.9rem; color: var(--text-main); cursor: pointer; }
 
-/* PC 版內容區域 */
+/* PC Content Area */
 .content-area {
-    flex: 1; 
-    margin-left: var(--sidebar-width); /* PC 版留白給 sidebar */
-    padding: 30px; 
-    background: var(--bg-body); 
-    min-height: 100vh;
-    padding-bottom: 50px;
+    flex: 1; margin-left: var(--sidebar-width); padding: 30px; background: var(--bg-body); min-height: 100vh; padding-bottom: 50px;
+    width: calc(100% - var(--sidebar-width)); /* 確保寬度計算正確 */
 }
-
-.section-group { max-width: 1200px; margin: 0 auto; display: none; animation: fadeIn 0.3s ease-out; }
+.section-group { max-width: 1400px; margin: 0 auto; display: none; animation: fadeIn 0.3s ease-out; }
 .section-group.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -145,12 +121,14 @@ body {
 
 /* --- 4. 卡片系統 --- */
 .card-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; align-items: stretch; }
+/* full-width-card 在手機預設也是滿版，但在桌面會跨欄 */
 .full-width-card { grid-column: 1 / -1; }
 .card-wrapper { height: 100%; display: flex; flex-direction: column; }
 
 .admin-card {
     background: var(--bg-surface); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-card);
     height: 100%; display: flex; flex-direction: column; border: 1px solid white;
+    overflow: hidden; /* 防止內容撐破卡片 */
 }
 .admin-card h3 {
     margin: 0 0 20px 0; font-size: 1.1rem; color: var(--text-main); font-weight: 700;
@@ -158,16 +136,12 @@ body {
 }
 .card-icon { font-size: 1.2rem; width: 36px; height: 36px; background: #f3f4f6; color: var(--text-main); display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; }
 
-/* --- 5. 按鈕樣式 --- */
+/* --- 5. 按鈕與輸入 --- */
 button { border: none; cursor: pointer; font-family: inherit; transition: all 0.2s ease; user-select: none; }
 button:active { transform: scale(0.97); }
 
 .big-action-row { display: flex; gap: 12px; margin-bottom: 20px; }
-.btn-big {
-    flex: 1; padding: 20px 10px; border-radius: var(--radius-md);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-    font-weight: 700; font-size: 0.95rem; box-shadow: var(--shadow-sm); min-height: 90px; min-width: 100px;
-}
+.btn-big { flex: 1; padding: 20px 10px; border-radius: var(--radius-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-weight: 700; font-size: 0.95rem; box-shadow: var(--shadow-sm); min-height: 90px; min-width: 100px; }
 .btn-big .icon { font-size: 1.4rem; }
 #btn-call-next { flex: 2; background: var(--primary-gradient); color: white; box-shadow: 0 6px 15px rgba(79, 70, 229, 0.25); font-size: 1.1rem; }
 #btn-call-next:hover { transform: translateY(-1px); }
@@ -175,19 +149,13 @@ button:active { transform: scale(0.97); }
 .btn-glass { background: #f9fafb; color: var(--text-sub); border: 1px solid var(--border-color); }
 .btn-glass:hover { background: white; border-color: #d1d5db; }
 .btn-warn { background: var(--warning-bg); color: var(--warning-text); border: 1px solid #fde68a; }
-.btn-warn:hover { background: #fef3c7; }
 .btn-success { background: var(--success-gradient); color: white; }
 .btn-secondary { background: #e0e7ff; color: var(--primary); font-weight: 600; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; white-space: nowrap; }
 .btn-add { width: 46px; height: 46px; border-radius: var(--radius-md); flex-shrink: 0; background: var(--success); color: white; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; line-height: 1; padding-bottom: 3px; }
-
-/* 底部對齊 */
 .btn-reset-single { width: 100%; padding: 12px; border-radius: var(--radius-md); background: transparent; border: 1px dashed var(--border-color); color: var(--text-light); font-size: 0.85rem; margin-top: auto; }
 .btn-reset-single:hover { border-color: var(--danger); color: var(--danger); background: #fef2f2; }
 
-/* --- 6. 輸入與表單 --- */
 .control-group { margin-bottom: 20px; width: 100%; flex-shrink: 0; }
-.list-editor { flex: 1; display: flex; flex-direction: column; }
-
 .control-group label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-main); }
 .section-hint { font-size: 0.85rem; color: var(--text-sub); margin-top: 6px; line-height: 1.4; }
 .var-hint { font-family: monospace; font-size: 0.8rem; color: #4b5563; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 8px; }
@@ -195,51 +163,63 @@ button:active { transform: scale(0.97); }
 
 .input-group { display: flex; gap: 8px; width: 100%; }
 .input-group.vertical { flex-direction: column; }
-
-input[type="text"], input[type="number"], input[type="password"] {
-    flex: 1; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md);
-    background: #f9fafb; color: var(--text-main); font-size: 1rem; transition: all 0.2s; min-width: 0; /* min-width:0 解決 flex 子元素溢出 */
-}
+input[type="text"], input[type="number"], input[type="password"] { flex: 1; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: #f9fafb; color: var(--text-main); font-size: 1rem; transition: all 0.2s; min-width: 0; }
 input:focus { background: white; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
-
 .form-group-boxed { background: #f9fafb; border: 1px solid #f3f4f6; padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px; }
 textarea { width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; background: white; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 80px; line-height: 1.5; }
-textarea:focus { border-color: var(--primary); }
-
 .toggle-wrapper { display: flex; align-items: center; }
 .sound-toggle-group, .system-toggle-group { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: var(--radius-md); background: #f9fafb; border: 1px solid var(--border-color); margin-bottom: 15px; cursor: pointer; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
 
-/* --- 7. 列表與日誌 (關鍵修復：長文字換行) --- */
+/* --- 6. 列表與日誌 (★修復 overflow 問題的核心) --- */
 ul { list-style: none; padding: 0; margin: 0; }
+.list-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; /* 關鍵：讓 flex 子元素可以縮小 */ }
+
 .list-editor ul, #admin-log-ui, #stats-list-ui, #online-users-list, #user-list-ui {
     background: #f9fafb; border-radius: var(--radius-md); border: 1px solid #f3f4f6;
     max-height: 220px; min-height: 100px; overflow-y: auto; margin-bottom: 12px;
 }
 #passed-list-ui, #featured-list-ui { flex: 1; min-height: 150px; max-height: 300px; }
-li { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: var(--text-sub); gap: 10px; }
+
+/* 列表項目樣式 */
+li { 
+    padding: 10px 14px; border-bottom: 1px solid #f3f4f6; 
+    display: flex; justify-content: space-between; align-items: center; 
+    font-size: 0.9rem; color: var(--text-sub); gap: 10px;
+    min-width: 0; /* 關鍵：防止內容撐開容器 */
+}
 li:last-child { border-bottom: none; }
-li span, .list-editor span { word-break: break-all; white-space: normal; } /* 強制換行 */
 
-.admin-log-container { flex: 1; display: flex; flex-direction: column; }
+/* 強制所有列表內的文字換行 (解決精選連結/日誌破版) */
+li span, .list-editor span, #admin-log-ui li {
+    word-break: break-all;      /* 強制斷行 */
+    overflow-wrap: anywhere;    /* 現代瀏覽器更好的斷行支援 */
+    white-space: normal;        /* 允許換行 */
+    min-width: 0;               /* Flexbox 溢出修復 */
+    flex: 1;                    /* 佔據剩餘空間 */
+}
+
+.admin-log-container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 #admin-log-ui { flex: 1; min-height: 150px; background: #1f2937; border: none; font-family: monospace; }
-#admin-log-ui li { color: #d1d5db; border-bottom: 1px solid #374151; font-size: 0.85rem; word-break: break-all; }
+#admin-log-ui li { color: #d1d5db; border-bottom: 1px solid #374151; font-size: 0.85rem; display: block; padding: 8px 12px; }
 
-/* --- 8. 圖表 --- */
-.chart-container { height: 180px; display: flex; align-items: flex-end; gap: 4px; margin-bottom: 20px; overflow-x: auto; padding-top: 20px; width: 100%; }
+/* --- 7. 圖表 --- */
+.chart-container { 
+    height: 180px; display: flex; align-items: flex-end; gap: 4px; margin-bottom: 20px; 
+    padding-top: 20px; width: 100%; 
+    overflow-x: auto; /* 允許橫向捲動 */
+}
 .chart-col { flex: 1; min-width: 18px; display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; }
 .chart-bar { width: 100%; background: #cbd5e1; border-radius: 3px 3px 0 0; min-height: 4px; transition: height 0.4s ease; }
 .chart-col:hover .chart-bar { background: var(--primary); }
 .chart-col.current .chart-bar { background: var(--warning); }
 .chart-label { font-size: 0.7rem; color: var(--text-light); margin-top: 4px; }
 
-/* --- 9. 其他元件 --- */
+/* --- 8. 其他元件 --- */
 #status-bar { position: fixed; top: 0; left: 0; width: 100%; background: var(--danger); color: white; padding: 8px; text-align: center; font-weight: 700; font-size: 0.9rem; transform: translateY(-100%); transition: transform 0.3s; z-index: 2000; }
 #status-bar.visible { transform: translateY(0); }
-
 #toast-notification { position: fixed; bottom: 90px; left: 50%; transform: translate(-50%, 20px); background: #374151; color: white; padding: 10px 20px; border-radius: 50px; font-size: 0.9rem; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 5000; width: max-content; max-width: 90%; text-align: center; }
 #toast-notification.show { transform: translate(-50%, 0); opacity: 1; }
-
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); z-index: 4000; display: flex; justify-content: center; align-items: center; }
 .modal-content { background: white; padding: 24px; border-radius: var(--radius-lg); width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
 .modal-actions { display: flex; gap: 16px; justify-content: center; margin: 24px 0; align-items: center; }
@@ -249,67 +229,48 @@ li span, .list-editor span { word-break: break-all; white-space: normal; } /* �
 
 /*
  * ==========================================
- * [手機響應式優化] (Mobile Responsive Fixes)
+ * [手機響應式優化] (Mobile Fixes)
  * ==========================================
  */
 @media (max-width: 768px) {
-    /* 1. Sidebar 改為底部固定導航，並移除右邊框 */
+    /* 1. Sidebar 底部固定導航 */
     .sidebar {
-        width: 100%;
-        height: var(--mobile-nav-height);
-        top: auto; 
-        bottom: 0; 
-        left: 0;
-        flex-direction: row;
-        border-right: none;
-        border-top: 1px solid var(--border-color);
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
-        position: fixed;
+        width: 100%; height: var(--mobile-nav-height);
+        top: auto; bottom: 0; left: 0;
+        flex-direction: row; border-right: none; border-top: 1px solid var(--border-color);
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.05); position: fixed;
     }
     .sidebar-header, .sidebar-footer { display: none; }
     .sidebar-nav { flex-direction: row; width: 100%; padding: 0; gap: 0; overflow: visible; }
-    .nav-btn {
-        flex-direction: column; justify-content: center; align-items: center;
-        border-radius: 0; padding: 6px 0; font-size: 0.7rem; flex: 1; text-align: center; gap: 4px;
-        background: transparent;
-    }
+    .nav-btn { flex-direction: column; justify-content: center; align-items: center; border-radius: 0; padding: 6px 0; font-size: 0.7rem; flex: 1; text-align: center; gap: 4px; background: transparent; }
     .nav-btn .nav-icon { margin: 0; font-size: 1.4rem; display: block; }
     .nav-btn.active { color: var(--primary); background: transparent; box-shadow: inset 0 3px 0 var(--primary); }
 
-    /* 2. Content Area 移除左邊距，增加底部留白 */
+    /* 2. Content Area 調整 */
     .content-area {
-        margin-left: 0;
-        padding: 15px;
-        padding-bottom: calc(var(--mobile-nav-height) + 30px); /* 關鍵：防止內容被底部導航遮擋 */
+        margin-left: 0; padding: 15px;
+        padding-bottom: calc(var(--mobile-nav-height) + 30px); /* 防止底部遮擋 */
         width: 100%;
     }
 
-    /* 3. Dashboard Header 縮減 */
+    /* 3. 儀表板 & 輸入框調整 */
     .dashboard-header { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     .dashboard-item { padding: 15px; }
     .dashboard-item:last-child { grid-column: 1 / -1; } 
     .big-number { font-size: 2.8rem; }
-    .sub-number { font-size: 2rem; }
     
-    /* 4. 卡片改為單欄 */
-    .card-container { grid-template-columns: 1fr; }
-    
-    /* 5. 輸入框組改為垂直排列 (解決手機版面擁擠) */
     .input-group { flex-direction: column; width: 100%; }
     .input-group button, .input-group .btn-add { width: 100%; margin-top: 5px; height: 44px; }
     
-    /* 6. 大按鈕區域優化 */
+    .card-container { grid-template-columns: 1fr; }
     .big-action-row { flex-wrap: wrap; }
     #btn-call-next { min-width: 100%; order: -1; margin-bottom: 8px; }
     .btn-big { min-width: calc(50% - 6px); }
     
-    /* 7. LINE 設定強制單欄 */
     #card-line-settings .admin-card { grid-template-columns: 1fr !important; }
     #card-line-settings details { grid-column: 1 !important; }
     
-    /* 8. 在線名單調整 */
     li { flex-wrap: wrap; }
-    .username { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 /*
@@ -318,33 +279,37 @@ li span, .list-editor span { word-break: break-all; white-space: normal; } /* �
  * ==========================================
  */
 @media (min-width: 1024px) {
-    /* 1. 叫號控制 & 發號機並排 */
     #card-calling.full-width-card { grid-column: auto; }
     #card-calling .big-action-row { margin-bottom: 15px; }
     #btn-call-next { flex: 1.5; }
 
-    /* 2. 用戶管理分欄 */
     #card-user-management .list-editor { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; align-items: start; max-height: none; overflow: visible; }
     #card-user-management .list-editor ul { margin-bottom: 0; max-height: 400px; }
     #card-user-management .input-group.vertical { background: #f9fafb; padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
 
-    /* 3. LINE 設定：強制將兩個 Details 區塊分為左右兩欄 */
-    #card-line-settings .admin-card {
-        display: grid;
-        grid-template-columns: 1fr 1fr; 
-        gap: 24px;
-        align-content: start;
-    }
+    /* LINE 設定雙欄 */
+    #card-line-settings .admin-card { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-content: start; }
     #card-line-settings .admin-card h3,
     #card-line-settings .admin-card #unlock-pwd-group,
-    #card-line-settings .admin-card > .control-group:last-child {
-        grid-column: 1 / -1; 
-    }
+    #card-line-settings .admin-card > .control-group:last-child { grid-column: 1 / -1; }
     #card-line-settings details:nth-of-type(1) { grid-column: 1; height: 100%; }
     #card-line-settings details:nth-of-type(2) { grid-column: 2; height: 100%; }
     #card-line-settings details .control-group.form-group-boxed { width: 100%; margin-bottom: 16px; }
 }
 
+/* * ★ 寬螢幕調整 (Fix: 數據分析/日誌在大螢幕過大) 
+ * 當螢幕 > 1440px 時，這兩張卡片不再強制滿版 (span 3)，
+ * 而是改為 span 2 (佔 2/3) 或回歸 auto (佔 1/3)，視需要調整。
+ */
 @media (min-width: 1440px) {
     .card-container { grid-template-columns: repeat(3, 1fr); }
+    
+    /* 讓數據分析與日誌不再佔滿整排 (原本是 1 / -1) */
+    #card-stats.full-width-card, 
+    #card-logs.full-width-card { 
+        grid-column: span 2; /* 改為佔據 2 欄寬度，旁邊還可以放其他卡片 */
+    }
+    
+    /* 如果希望它們變更小，可以改為 auto */
+    /* #card-logs.full-width-card { grid-column: auto; } */
 }
