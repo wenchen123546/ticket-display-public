@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.19 Optimized (Inline Edit)
+ * 後台邏輯 (admin.js) - v18.20 Fixes (Online List, Logs Clear, Rights)
  * ==========================================
  */
 
@@ -226,22 +226,42 @@ async function showPanel() {
     if(sidebarUserInfo) sidebarUserInfo.textContent = `Hi, ${username}`;
 
     const isSuper = userRole === 'super';
+    
+    // 1. 控制超級管理員專屬區塊顯示
     const elementsToToggle = [
-        "card-user-management", "btn-export-csv", 
-        "mode-switcher-group", "unlock-pwd-group"
+        "card-user-management", 
+        "btn-export-csv", 
+        "mode-switcher-group", 
+        "unlock-pwd-group"
     ];
     elementsToToggle.forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = isSuper ? "block" : "none";
     });
+
+    // 2. [修正] 控制側邊欄 "LINE 設定" 按鈕顯示
+    const lineNavBtn = document.querySelector('button[data-target="section-line"]');
+    if (lineNavBtn) {
+        // 如果不是超級管理員，直接隱藏按鈕
+        lineNavBtn.style.display = isSuper ? "flex" : "none";
+        
+        // 如果當前正好停留在 LINE 分頁且被隱藏了，強制跳轉回首頁
+        if (!isSuper && document.getElementById('section-line').classList.contains('active')) {
+            const homeBtn = document.querySelector('button[data-target="section-live"]');
+            if (homeBtn) homeBtn.click();
+        }
+    }
     
-    // 讓所有有權限進入的使用者都能看到列表（以便修改自己暱稱）
-    // 後端 API 會把關是否能看到列表，但前端這裡我們開放呼叫
-    await loadAdminUsers();
-    
+    // 下載數據
+    await loadAdminUsers(); // 所有管理員都可載入，方便修改自己暱稱
     initTabs();
     await loadStats();
-    await loadLineSettings();
+    
+    // 只有超級管理員才載入 LINE 設定 (避免一般管理員觸發 403 錯誤)
+    if (isSuper) {
+        await loadLineSettings();
+    }
+
     socket.connect();
 }
 
@@ -620,6 +640,17 @@ setupConfirmationButton(document.getElementById("resetPassed"), "btn_reset_passe
 setupConfirmationButton(document.getElementById("resetFeaturedContents"), "btn_reset_links", "btn_confirm_reset", async () => { if (await apiRequest("/api/featured/clear", {})) showToast(at["toast_featured_cleared"], "success"); });
 setupConfirmationButton(document.getElementById("resetAll"), "btn_reset_all", "btn_confirm_reset", async () => { if (await apiRequest("/reset", {})) { document.getElementById("manualNumber").value = ""; showToast(at["toast_all_reset"], "success"); await loadStats(); } });
 
+// [新增] 清除日誌按鈕事件
+const btnClearLogs = document.getElementById("btn-clear-logs");
+if (btnClearLogs) {
+    setupConfirmationButton(btnClearLogs, "清除所有日誌", "btn_confirm_clear", async () => {
+        if (await apiRequest("/api/logs/clear", {})) {
+            showToast(at["toast_log_clearing"] || "日誌已清除", "success");
+            // Socket 會自動廣播更新後的空日誌，不需要手動清 UI
+        }
+    });
+}
+
 const newPassedNumberInput = document.getElementById("new-passed-number");
 const addPassedBtn = document.getElementById("add-passed-btn");
 if(addPassedBtn) addPassedBtn.onclick = async () => {
@@ -725,7 +756,6 @@ if (modeRadios) {
     });
 }
 
-// [修改] 支援行內編輯 (Inline Editing) 的管理員列表
 async function loadAdminUsers() {
     const ui = document.getElementById("user-list-ui");
     if (!ui) return;
@@ -743,18 +773,15 @@ async function loadAdminUsers() {
         const fragment = document.createDocumentFragment();
         data.users.forEach(user => {
             const li = document.createElement("li");
-            // 改為 block 佈局，內部容器自己控制 flex
             li.style.display = "block"; 
             li.style.padding = "8px 14px"; 
 
-            // --- 狀態 A: 檢視模式 (View Mode) ---
             const viewDiv = document.createElement("div");
             viewDiv.style.display = "flex";
             viewDiv.style.justifyContent = "space-between";
             viewDiv.style.alignItems = "center";
             viewDiv.style.width = "100%";
 
-            // 1. 左側資訊
             const infoDiv = document.createElement("div");
             infoDiv.style.display = "flex";
             infoDiv.style.alignItems = "center";
@@ -771,11 +798,13 @@ async function loadAdminUsers() {
 
             infoDiv.append(icon, strong, smallUser);
 
-            // 2. 右側按鈕
             const actionDiv = document.createElement("div");
             actionDiv.style.display = "flex";
             actionDiv.style.gap = "5px";
 
+            // [修正] 僅在超級管理員或自己時顯示編輯按鈕
+            // 雖然 API 有擋，但前端做一層隱藏體驗較佳
+            // 這裡簡化邏輯：所有人都顯示按鈕，讓後端決定是否成功 (API 已有權限檢查)
             const editBtn = document.createElement("button");
             editBtn.className = "btn-secondary"; 
             editBtn.textContent = "✎"; 
@@ -784,7 +813,6 @@ async function loadAdminUsers() {
             editBtn.style.fontSize = "0.9rem";
             editBtn.style.minWidth = "30px";
             
-            // 點擊編輯：切換到編輯模式
             editBtn.onclick = () => {
                 viewDiv.style.display = "none";
                 editDiv.style.display = "flex";
@@ -792,7 +820,7 @@ async function loadAdminUsers() {
             };
             actionDiv.appendChild(editBtn);
 
-            if (user.role !== 'super') {
+            if (user.role !== 'super' && userRole === 'super') {
                 const deleteBtn = document.createElement("button");
                 deleteBtn.className = "delete-item-btn"; 
                 deleteBtn.textContent = "✕";
@@ -812,35 +840,28 @@ async function loadAdminUsers() {
             viewDiv.appendChild(infoDiv);
             viewDiv.appendChild(actionDiv);
 
-
-            // --- 狀態 B: 編輯模式 (Edit Mode) ---
             const editDiv = document.createElement("div");
-            editDiv.style.display = "none"; // 預設隱藏
+            editDiv.style.display = "none"; 
             editDiv.style.justifyContent = "space-between";
             editDiv.style.alignItems = "center";
             editDiv.style.width = "100%";
             editDiv.style.gap = "8px";
 
-            // 輸入框
             const input = document.createElement("input");
             input.type = "text";
             input.value = user.nickname;
             input.placeholder = "輸入新暱稱";
             input.style.padding = "4px 8px";
             input.style.fontSize = "0.95rem";
-            // 避免輸入框太寬或太窄
             input.style.flex = "1"; 
 
-            // 按鈕容器
             const editActionDiv = document.createElement("div");
             editActionDiv.style.display = "flex";
             editActionDiv.style.gap = "5px";
 
-            // 儲存邏輯
             const saveChanges = async () => {
                 const newNick = input.value.trim();
                 if (newNick && newNick !== "" && newNick !== user.nickname) {
-                    // 鎖定按鈕
                     saveBtn.disabled = true;
                     const success = await apiRequest("/api/admin/set-nickname", { 
                         targetUsername: user.username, 
@@ -854,14 +875,12 @@ async function loadAdminUsers() {
                         saveBtn.disabled = false;
                     }
                 } else {
-                    // 如果沒改或空白，直接退回檢視模式
                     editDiv.style.display = "none";
                     viewDiv.style.display = "flex";
-                    input.value = user.nickname; // 重置
+                    input.value = user.nickname; 
                 }
             };
 
-            // 儲存按鈕 (打勾)
             const saveBtn = document.createElement("button");
             saveBtn.className = "btn-secondary";
             saveBtn.style.background = "var(--success)";
@@ -870,20 +889,18 @@ async function loadAdminUsers() {
             saveBtn.style.padding = "2px 8px";
             saveBtn.onclick = saveChanges;
 
-            // 取消按鈕 (叉叉)
             const cancelBtn = document.createElement("button");
             cancelBtn.className = "btn-secondary";
-            cancelBtn.style.background = "#e5e7eb"; // 淺灰
+            cancelBtn.style.background = "#e5e7eb"; 
             cancelBtn.style.color = "#374151";
             cancelBtn.textContent = "✕";
             cancelBtn.style.padding = "2px 8px";
             cancelBtn.onclick = () => {
                 editDiv.style.display = "none";
                 viewDiv.style.display = "flex";
-                input.value = user.nickname; // 重置
+                input.value = user.nickname; 
             };
 
-            // 支援 Enter 鍵儲存
             input.addEventListener("keyup", (e) => {
                 if (e.key === "Enter") saveChanges();
                 if (e.key === "Escape") cancelBtn.click();
