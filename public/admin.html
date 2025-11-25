@@ -185,7 +185,8 @@
                             <div class="control-group admin-log-container">
                                 <ul id="admin-log-ui"><li>等待連線...</li></ul>
                             </div>
-                            </div>
+                            <button id="btn-clear-logs" type="button" class="btn-reset-single" style="margin-top: 10px;">清除所有日誌</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -227,6 +228,17 @@
                             </div>
 
                             <button id="resetAll" type="button" class="btn-reset-single" style="border: 2px solid #ef4444; color:#ef4444; font-weight:bold; margin-top:auto;" data-i18n="btn_reset_all">💥 系統全域重置 (危險)</button>
+                        </div>
+                    </div>
+
+                    <div class="card-wrapper" id="card-online">
+                        <div class="admin-card">
+                            <h3><span class="card-icon">🟢</span> <span data-i18n="card_title_online">在線管理員</span></h3>
+                            <div class="control-group list-editor" style="flex:1;">
+                                <ul id="online-users-list">
+                                    <li>(載入中...)</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
 
