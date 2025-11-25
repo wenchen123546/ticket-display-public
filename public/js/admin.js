@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.20 Fixes (Online List, Logs Clear, Rights)
+ * 後台邏輯 (admin.js) - v18.21 Fixes
  * ==========================================
  */
 
@@ -227,7 +227,6 @@ async function showPanel() {
 
     const isSuper = userRole === 'super';
     
-    // 1. 控制超級管理員專屬區塊顯示
     const elementsToToggle = [
         "card-user-management", 
         "btn-export-csv", 
@@ -239,28 +238,19 @@ async function showPanel() {
         if(el) el.style.display = isSuper ? "block" : "none";
     });
 
-    // 2. [修正] 控制側邊欄 "LINE 設定" 按鈕顯示
     const lineNavBtn = document.querySelector('button[data-target="section-line"]');
     if (lineNavBtn) {
-        // 如果不是超級管理員，直接隱藏按鈕
         lineNavBtn.style.display = isSuper ? "flex" : "none";
-        
-        // 如果當前正好停留在 LINE 分頁且被隱藏了，強制跳轉回首頁
         if (!isSuper && document.getElementById('section-line').classList.contains('active')) {
             const homeBtn = document.querySelector('button[data-target="section-live"]');
             if (homeBtn) homeBtn.click();
         }
     }
     
-    // 下載數據
-    await loadAdminUsers(); // 所有管理員都可載入，方便修改自己暱稱
+    await loadAdminUsers(); 
     initTabs();
     await loadStats();
-    
-    // 只有超級管理員才載入 LINE 設定 (避免一般管理員觸發 403 錯誤)
-    if (isSuper) {
-        await loadLineSettings();
-    }
+    if (isSuper) await loadLineSettings();
 
     socket.connect();
 }
@@ -398,9 +388,9 @@ function renderLogs(logs, isInit) {
     if(isInit) {
         ui.appendChild(fragment);
     } else {
-        ui.appendChild(fragment); 
+        ui.insertBefore(fragment, ui.firstChild); 
     }
-    ui.scrollTop = ui.scrollHeight;
+    // 日誌在上方插入，不需要捲動到底部
 }
 
 // --- API Wrapper ---
@@ -436,7 +426,6 @@ async function apiRequest(endpoint, body, a_returnResponse = false) {
 function setupConfirmationButton(buttonEl, originalTextKey, confirmTextKey, actionCallback) {
     if (!buttonEl) return;
     let timer = null; let isConfirming = false; let countdown = 5;
-    const getTxt = (key) => at[key] || key;
     
     let confirmTxtBase;
     if (confirmTextKey === "btn_confirm_clear") {
@@ -614,6 +603,28 @@ if(btnMarkPassed) btnMarkPassed.onclick = async () => {
 if(btnIssuePrev) btnIssuePrev.onclick = () => apiRequest("/api/control/issue", { direction: "prev" });
 if(btnIssueNext) btnIssueNext.onclick = () => apiRequest("/api/control/issue", { direction: "next" });
 
+// [新增] 快速輸入按鈕邏輯
+const btnQuickAdd1 = document.getElementById("quick-add-1");
+const btnQuickAdd5 = document.getElementById("quick-add-5");
+const btnQuickClear = document.getElementById("quick-clear");
+const manualInput = document.getElementById("manualNumber");
+
+if(btnQuickAdd1 && manualInput) {
+    btnQuickAdd1.onclick = () => {
+        const current = parseInt(document.getElementById("number").innerText) || 0;
+        manualInput.value = current + 1;
+    };
+}
+if(btnQuickAdd5 && manualInput) {
+    btnQuickAdd5.onclick = () => {
+        const current = parseInt(document.getElementById("number").innerText) || 0;
+        manualInput.value = current + 5;
+    };
+}
+if(btnQuickClear && manualInput) {
+    btnQuickClear.onclick = () => { manualInput.value = ""; };
+}
+
 document.getElementById("setNumber").onclick = async () => {
     const num = document.getElementById("manualNumber").value;
     const n = Number(num);
@@ -628,25 +639,40 @@ const setIssuedBtn = document.getElementById("setIssuedNumber");
 if(setIssuedBtn) setIssuedBtn.onclick = async () => {
     const num = document.getElementById("manualIssuedNumber").value;
     const n = Number(num);
+    // 允許輸入 0 (配合後端修正)
     if (num === "" || n < 0 || !Number.isInteger(n)) return showToast(at["alert_positive_int"], "error");
-    if (await apiRequest("/api/control/set-issue", { number: num })) {
+    
+    if (await apiRequest("/api/control/set-issue", { number: n })) {
         document.getElementById("manualIssuedNumber").value = "";
-        showToast(at["toast_issued_updated"], "success");
+        showToast(n === 0 ? at["toast_reset_zero"] : at["toast_issued_updated"], "success");
     }
 };
 
+// 重置叫號
 setupConfirmationButton(document.getElementById("resetNumber"), "btn_reset_call", "btn_confirm_reset", async () => { if (await apiRequest("/api/control/set-call", { number: 0 })) { document.getElementById("manualNumber").value = ""; showToast(at["toast_reset_zero"], "success"); } });
+
+// 重置發號 (新增)
+setupConfirmationButton(
+    document.getElementById("resetIssued"), 
+    "↺ 重置發號歸零", 
+    "btn_confirm_reset", 
+    async () => { 
+        if (await apiRequest("/api/control/set-issue", { number: 0 })) { 
+            document.getElementById("manualIssuedNumber").value = ""; 
+            showToast(at["toast_reset_zero"], "success"); 
+        } 
+    }
+);
+
 setupConfirmationButton(document.getElementById("resetPassed"), "btn_reset_passed", "btn_confirm_reset", async () => { if (await apiRequest("/api/passed/clear", {})) showToast(at["toast_passed_cleared"], "success"); });
 setupConfirmationButton(document.getElementById("resetFeaturedContents"), "btn_reset_links", "btn_confirm_reset", async () => { if (await apiRequest("/api/featured/clear", {})) showToast(at["toast_featured_cleared"], "success"); });
 setupConfirmationButton(document.getElementById("resetAll"), "btn_reset_all", "btn_confirm_reset", async () => { if (await apiRequest("/reset", {})) { document.getElementById("manualNumber").value = ""; showToast(at["toast_all_reset"], "success"); await loadStats(); } });
 
-// [新增] 清除日誌按鈕事件
 const btnClearLogs = document.getElementById("btn-clear-logs");
 if (btnClearLogs) {
     setupConfirmationButton(btnClearLogs, "清除所有日誌", "btn_confirm_clear", async () => {
         if (await apiRequest("/api/logs/clear", {})) {
             showToast(at["toast_log_clearing"] || "日誌已清除", "success");
-            // Socket 會自動廣播更新後的空日誌，不需要手動清 UI
         }
     });
 }
@@ -773,9 +799,8 @@ async function loadAdminUsers() {
         const fragment = document.createDocumentFragment();
         data.users.forEach(user => {
             const li = document.createElement("li");
-            li.style.display = "block"; 
-            li.style.padding = "8px 14px"; 
-
+            
+            // --- View Mode ---
             const viewDiv = document.createElement("div");
             viewDiv.style.display = "flex";
             viewDiv.style.justifyContent = "space-between";
@@ -802,9 +827,6 @@ async function loadAdminUsers() {
             actionDiv.style.display = "flex";
             actionDiv.style.gap = "5px";
 
-            // [修正] 僅在超級管理員或自己時顯示編輯按鈕
-            // 雖然 API 有擋，但前端做一層隱藏體驗較佳
-            // 這裡簡化邏輯：所有人都顯示按鈕，讓後端決定是否成功 (API 已有權限檢查)
             const editBtn = document.createElement("button");
             editBtn.className = "btn-secondary"; 
             editBtn.textContent = "✎"; 
@@ -840,6 +862,7 @@ async function loadAdminUsers() {
             viewDiv.appendChild(infoDiv);
             viewDiv.appendChild(actionDiv);
 
+            // --- Edit Mode ---
             const editDiv = document.createElement("div");
             editDiv.style.display = "none"; 
             editDiv.style.justifyContent = "space-between";
