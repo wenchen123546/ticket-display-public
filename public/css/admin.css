@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v5.2 Desktop Layout Fix
+ * 後台樣式 (admin.css) - v5.3 Perfect Layout Fix
  * ==========================================
  */
 
@@ -181,32 +181,30 @@ textarea { width: 100%; border: 1px solid var(--border-color); border-radius: va
 .sound-toggle-group, .system-toggle-group { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: var(--radius-md); background: #f9fafb; border: 1px solid var(--border-color); margin-bottom: 15px; cursor: pointer; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
 
-/* --- 6. 列表與日誌 (★ 核心修復：使用 Flex 自動填滿高度) --- */
+/* --- 6. 列表與日誌 (★ Flex 自動高度核心修復 ★) --- */
 ul { list-style: none; padding: 0; margin: 0; }
 
-.list-editor { 
+/* 定義容器為 Flex Column，且不限制高度，讓它自動填滿卡片 */
+.list-editor, .admin-log-container { 
     flex: 1; 
     display: flex; 
     flex-direction: column; 
     min-width: 0; 
-    min-height: 0; /* 讓子元素可以縮小 */
+    min-height: 0; /* ★ 讓子元素可以縮小到 0 */
+    overflow: hidden; /* 防止撐開卡片 */
 }
 
-/* 讓列表自動填滿空間，並加上卷軸 */
-.list-editor ul, #admin-log-ui, #stats-list-ui, #online-users-list, #user-list-ui {
-    flex: 1; /* 自動佔據剩餘空間 */
+/* 列表本體：自動填滿空間，並出現捲軸 */
+.list-editor ul, #admin-log-ui, #stats-list-ui, #online-users-list, #user-list-ui, #passed-list-ui, #featured-list-ui {
+    flex: 1; /* ★ 關鍵：佔據所有剩餘空間 */
     background: #f9fafb; 
     border-radius: var(--radius-md); 
     border: 1px solid #f3f4f6;
-    overflow-y: auto; /* 內部卷軸 */
+    overflow-y: auto; /* ★ 內容多時出現捲軸 */
     margin-bottom: 12px;
-    min-height: 150px; /* 最小高度保護 */
-    max-height: none;  /* 移除固定高度限制 */
-}
-
-/* 特殊列表：讓日誌和過號名單在卡片中盡可能延伸 */
-#passed-list-ui, #featured-list-ui, #admin-log-ui {
-    max-height: 500px; /* PC 上給一個較大的上限，避免無限延伸 */
+    height: 100%; /* 確保撐開 */
+    min-height: 120px; /* 給一個最小高度，避免太扁 */
+    max-height: none !important; /* ★ 移除任何最大高度限制，完全由 Flex 控制 */
 }
 
 li { 
@@ -226,8 +224,7 @@ li span, .list-editor span, #admin-log-ui li {
     width: 0;
 }
 
-.admin-log-container { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-#admin-log-ui { flex: 1; min-height: 200px; background: #1f2937; border: none; font-family: monospace; }
+#admin-log-ui { background: #1f2937; border: none; font-family: monospace; }
 #admin-log-ui li { color: #d1d5db; border-bottom: 1px solid #374151; font-size: 0.85rem; display: block; padding: 8px 12px; }
 
 /* --- 7. 圖表 --- */
@@ -296,32 +293,37 @@ li span, .list-editor span, #admin-log-ui li {
     #card-calling .big-action-row { margin-bottom: 15px; }
     #btn-call-next { flex: 1.5; }
 
-    /* ★ 修正：管理員帳號佈局 - 左列表，右輸入 */
+    /* ★ 修正：管理員帳號佈局 (Grid) */
+    /* 讓左側列表和右側輸入框各佔一區，列表高度自動對齊輸入區 */
     #card-user-management .list-editor {
         display: grid;
-        grid-template-columns: 1.5fr 1fr;
+        grid-template-columns: 1fr 280px; /* ★ 左列表彈性寬，右輸入固定寬 280px */
         grid-template-rows: auto 1fr;
-        gap: 24px;
+        gap: 20px;
         align-items: start;
         max-height: none;
         overflow: visible;
-        flex: none; /* 關閉 flex 讓 grid 生效 */
+        flex: none; 
     }
-    /* 1. 列表：固定在左側，佔滿兩列 */
+    
+    /* 列表：佔據左側全部高度 */
     #card-user-management .list-editor ul {
         grid-column: 1;
         grid-row: 1 / -1;
         margin-bottom: 0;
-        height: 100%;
-        max-height: 500px; /* 限制最大高度，避免太長 */
+        height: 100%;       /* 撐滿高度 */
+        min-height: 250px;  /* 最小高度 */
+        max-height: 450px !important; /* ★ 限制最大高度，避免列表無限長導致輸入框很難找 */
     }
-    /* 2. 標題：右側第一列 */
+
+    /* 標題：右側第一列 */
     #card-user-management .list-editor > label {
         grid-column: 2;
         grid-row: 1;
         margin-bottom: 0;
     }
-    /* 3. 輸入框：右側第二列 */
+    
+    /* 輸入框：右側第二列 */
     #card-user-management .list-editor > .input-group.vertical {
         grid-column: 2;
         grid-row: 2;
@@ -329,6 +331,8 @@ li span, .list-editor span, #admin-log-ui li {
         padding: 20px;
         border-radius: var(--radius-md);
         border: 1px solid var(--border-color);
+        height: auto;
+        align-self: start; /* 靠上對齊 */
     }
 
     /* LINE 設定雙欄 */
