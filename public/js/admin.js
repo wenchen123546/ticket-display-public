@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.17 Optimized (Login Fix)
+ * 後台邏輯 (admin.js) - v18.18 Optimized (Nickname Edit)
  * ==========================================
  */
 
@@ -236,6 +236,8 @@ async function showPanel() {
         if(el) el.style.display = isSuper ? "block" : "none";
     });
     
+    // 即使不是 Super Admin，只要有權限進入，都會加載基本數據
+    // 但只有 Super Admin 會顯示「管理員管理」區塊
     if (isSuper) await loadAdminUsers();
     
     initTabs();
@@ -244,12 +246,9 @@ async function showPanel() {
     socket.connect();
 }
 
-// [修改] 優化後的登入函式：防止按鈕重複點擊
 async function attemptLogin(loginName, loginPass) {
-    // 1. 防止重複點擊
     if (loginButton.disabled) return;
 
-    // 2. 鎖定按鈕並顯示載入中
     loginButton.disabled = true;
     const originalBtnText = loginButton.textContent;
     loginButton.textContent = at["login_verifying"] || "驗證中...";
@@ -264,33 +263,25 @@ async function attemptLogin(loginName, loginPass) {
         const data = await res.json();
         
         if (!res.ok) {
-            // 顯示錯誤訊息
             loginError.textContent = data.error || (data.message && data.message.error) || at["login_fail"];
-            
-            // 登入失敗，解鎖按鈕
             showLogin(); 
             loginButton.disabled = false;
             loginButton.textContent = originalBtnText;
         } else {
-            // 登入成功
             token = data.token;
             userRole = data.role;
             username = data.nickname;
             uniqueUsername = data.username;
             socket.auth.token = token;
             
-            // 成功後不需要解鎖按鈕，因為畫面會切換
             await showPanel();
             
-            // 恢復按鈕狀態 (以防登出後回來)
             loginButton.disabled = false;
             loginButton.textContent = originalBtnText;
         }
     } catch (err) {
         console.error("attemptLogin 失敗:", err);
         loginError.textContent = at["login_error_server"];
-        
-        // 發生錯誤，解鎖按鈕
         loginButton.disabled = false;
         loginButton.textContent = originalBtnText;
         return false;
@@ -374,7 +365,6 @@ function renderLogs(logs, isInit) {
         return;
     }
     
-    // 如果初始狀態是 (載入中...) 或 [目前尚無日誌]，則清空
     if(isInit && ui.firstElementChild && (ui.firstElementChild.textContent.includes("載入中") || ui.firstElementChild.textContent.includes("尚無"))) {
         ui.replaceChildren();
     }
@@ -429,20 +419,17 @@ function setupConfirmationButton(buttonEl, originalTextKey, confirmTextKey, acti
     let timer = null; let isConfirming = false; let countdown = 5;
     const getTxt = (key) => at[key] || key;
     
-    // 根據 confirmTextKey 決定確認文案
     let confirmTxtBase;
     if (confirmTextKey === "btn_confirm_clear") {
         confirmTxtBase = at["zh-TW"] ? "⚠️ 確認清除" : "⚠️ Confirm Clear";
     } else if (confirmTextKey === "btn_confirm_reset") {
         confirmTxtBase = at["zh-TW"] ? "⚠️ 確認重置" : "⚠️ Confirm Reset";
     } else {
-        // 適用於 list 元素的刪除按鈕 (✕ -> ⚠️)
         confirmTxtBase = "⚠️"; 
     }
 
     const resetBtn = () => {
         clearInterval(timer); isConfirming = false; countdown = 5;
-        // 如果是刪除按鈕，originalTextKey 可能是 "✕"
         buttonEl.textContent = originalTextKey; 
         buttonEl.classList.remove("is-confirming");
     };
@@ -496,7 +483,6 @@ function renderPassedListUI(numbers) {
         deleteBtn.className = "delete-item-btn"; 
         deleteBtn.textContent = "✕";
         
-        // 統一使用 setupConfirmationButton
         setupConfirmationButton(deleteBtn, "✕", "⚠️", async () => { 
             deleteBtn.disabled = true; 
             await apiRequest("/api/passed/remove", { number }); 
@@ -538,7 +524,6 @@ function renderFeaturedListUI(contents) {
         deleteBtn.className = "delete-item-btn"; 
         deleteBtn.textContent = "✕";
         
-        // 統一使用 setupConfirmationButton
         setupConfirmationButton(deleteBtn, "✕", "⚠️", async () => { 
             deleteBtn.disabled = true; 
             await apiRequest("/api/featured/remove", { linkText: item.linkText, linkUrl: item.linkUrl }); 
@@ -598,7 +583,6 @@ const btnMarkPassed = document.getElementById("btn-mark-passed");
 const btnIssuePrev = document.getElementById("btn-issue-prev");
 const btnIssueNext = document.getElementById("btn-issue-next");
 
-// 號碼控制 API 更新
 if(btnCallPrev) btnCallPrev.onclick = () => apiRequest("/api/control/call", { direction: "prev" });
 if(btnCallNext) btnCallNext.onclick = () => apiRequest("/api/control/call", { direction: "next" });
 
@@ -678,7 +662,6 @@ if (broadcastBtn) {
 
 const soundToggle = document.getElementById("sound-toggle");
 const publicToggle = document.getElementById("public-toggle");
-// admin.html 中沒有 public-toggle-label，這裡使用 publicToggle 的父層元素
 const publicToggleLabel = publicToggle ? publicToggle.closest('.system-toggle-group').querySelector('label[for="public-toggle"]') : null; 
 
 if(soundToggle) soundToggle.addEventListener("change", () => { apiRequest("/set-sound-enabled", { enabled: soundToggle.checked }); });
@@ -695,13 +678,11 @@ if(publicToggle && publicToggleLabel) publicToggle.addEventListener("change", ()
         apiRequest("/set-public-status", { isPublic: true });
     } else {
         if (publicToggleConfirmTimer) { 
-            // 如果點擊第二次，則確認關閉
             clearInterval(publicToggleConfirmTimer.interval); clearTimeout(publicToggleConfirmTimer.timer); 
             publicToggleConfirmTimer = null; 
             publicToggleLabel.classList.remove("is-confirming-label"); 
             apiRequest("/set-public-status", { isPublic: false }); 
         } else {
-            // 第一次點擊，進入確認模式
             publicToggle.checked = true; let countdown = 5;
             const closeTxt = at["label_confirm_close"];
             publicToggleLabel.textContent = `${closeTxt} (${countdown}s)`;
@@ -710,7 +691,6 @@ if(publicToggle && publicToggleLabel) publicToggle.addEventListener("change", ()
                 countdown--; 
                 if (countdown > 0) publicToggleLabel.textContent = `${closeTxt} (${countdown}s)`; 
                 else {
-                    // 超時自動取消
                     clearInterval(interval); 
                     publicToggleLabel.textContent = originalText; 
                     publicToggleLabel.classList.remove("is-confirming-label"); 
@@ -718,7 +698,6 @@ if(publicToggle && publicToggleLabel) publicToggle.addEventListener("change", ()
                 }
             }, 1000);
             const timer = setTimeout(() => { 
-                // 超時自動取消 (確保)
                 clearInterval(interval); 
                 publicToggleLabel.textContent = originalText; 
                 publicToggleLabel.classList.remove("is-confirming-label"); 
@@ -740,7 +719,6 @@ if (modeRadios) {
                 if(await apiRequest("/set-system-mode", { mode: val })) { showToast(at["toast_mode_switched"], "success"); } 
                 else { socket.emit("requestUpdate"); }
             } else {
-                // 如果取消，將狀態改回舊的模式
                 const other = val === 'ticketing' ? 'input' : 'ticketing';
                 document.querySelector(`input[name="systemMode"][value="${other}"]`).checked = true;
             }
@@ -748,6 +726,7 @@ if (modeRadios) {
     });
 }
 
+// [修改] 優化後的管理員列表載入函式 (含修改暱稱按鈕)
 async function loadAdminUsers() {
     const ui = document.getElementById("user-list-ui");
     if (!ui) return;
@@ -765,32 +744,84 @@ async function loadAdminUsers() {
         const fragment = document.createDocumentFragment();
         data.users.forEach(user => {
             const li = document.createElement("li");
+            // 讓列表項目有更好的佈局
+            li.style.display = "flex";
+            li.style.justifyContent = "space-between";
+            li.style.alignItems = "center";
+
             const icon = user.role === 'super' ? '👑' : '👤';
             
-            const span = document.createElement("span");
+            // --- 資訊區塊 ---
+            const infoDiv = document.createElement("div");
+            infoDiv.style.display = "flex";
+            infoDiv.style.alignItems = "center";
+            infoDiv.style.gap = "8px";
+
             const strong = document.createElement("strong");
             strong.textContent = user.nickname;
+            strong.style.fontSize = "1rem";
+
+            const smallUser = document.createElement("span");
+            smallUser.textContent = `(${user.username})`;
+            smallUser.style.color = "#666";
+            smallUser.style.fontSize = "0.85rem";
+
+            infoDiv.append(icon, strong, smallUser);
+
+            // --- 操作按鈕區塊 ---
+            const actionDiv = document.createElement("div");
+            actionDiv.style.display = "flex";
+            actionDiv.style.gap = "5px";
+
+            // [新增] 修改暱稱按鈕
+            const editBtn = document.createElement("button");
+            editBtn.className = "btn-secondary"; 
+            editBtn.textContent = "✎"; 
+            editBtn.title = "修改暱稱";
+            editBtn.style.padding = "2px 8px";
+            editBtn.style.fontSize = "0.9rem";
+            editBtn.style.minWidth = "30px";
+
+            editBtn.onclick = async () => {
+                const newNick = prompt(`請輸入 [${user.username}] 的新暱稱:`, user.nickname);
+                if (newNick && newNick.trim() !== "" && newNick.trim() !== user.nickname) {
+                    editBtn.disabled = true;
+                    const success = await apiRequest("/api/admin/set-nickname", { 
+                        targetUsername: user.username, 
+                        nickname: newNick.trim() 
+                    });
+                    
+                    if (success) {
+                        showToast(`✅ 暱稱已更新為: ${newNick.trim()}`, "success");
+                        await loadAdminUsers(); // 重整列表
+                    } else {
+                        editBtn.disabled = false;
+                    }
+                }
+            };
+            actionDiv.appendChild(editBtn);
             
-            span.append(`${icon} `, strong, ` (${user.username})`);
-            li.appendChild(span);
-            
+            // 刪除按鈕 (Super Admin 不可刪除)
             if (user.role !== 'super') {
                 const deleteBtn = document.createElement("button");
                 deleteBtn.className = "delete-item-btn"; 
                 deleteBtn.textContent = "✕";
+                deleteBtn.title = "刪除帳號";
                 
-                // 統一使用 setupConfirmationButton
                 setupConfirmationButton(deleteBtn, "✕", "⚠️", async () => { 
                     deleteBtn.disabled = true; 
                     if (await apiRequest("/api/admin/del-user", { delUsername: user.username })) { 
                         showToast(`✅ 已刪除: ${user.username}`, "success"); 
-                        await loadAdminUsers(); // 重新載入列表
+                        await loadAdminUsers(); 
                     } else { 
                         deleteBtn.disabled = false; 
                     } 
                 });
-                li.appendChild(deleteBtn);
+                actionDiv.appendChild(deleteBtn);
             }
+
+            li.appendChild(infoDiv);
+            li.appendChild(actionDiv);
             fragment.appendChild(li);
         });
         ui.appendChild(fragment);
@@ -857,7 +888,7 @@ async function loadStats() {
             fragment.appendChild(li);
         });
         statsListUI.appendChild(fragment);
-        statsListUI.scrollTop = 0; // 捲到頂部看最新
+        statsListUI.scrollTop = 0; 
     } else { 
         const li = document.createElement("li");
         li.textContent = at["list_load_fail"];
