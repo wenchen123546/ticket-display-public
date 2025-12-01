@@ -37,8 +37,51 @@ const parseCookie = s => s.split(';').reduce((a, v) => { const [k, val] = v.spli
 let bCastT = null, cacheWait = 0, lastWaitCalc = 0;
 const broadcastQueue = async () => { if (bCastT) clearTimeout(bCastT); bCastT = setTimeout(async () => { let [c, i] = (await redis.mget(KEYS.CURRENT, KEYS.ISSUED)).map(v => parseInt(v)||0); if(i<c) { i=c; await redis.set(KEYS.ISSUED, i); } io.emit("update", c); io.emit("updateQueue", { current: c, issued: i }); io.emit("updateWaitTime", await calcWaitTime()); io.emit("updateTimestamp", new Date().toISOString()); }, 100); };
 const broadcastAppts = async () => io.to("admin").emit("updateAppointments", await all("SELECT * FROM appointments WHERE status='pending' ORDER BY scheduled_time ASC"));
-const calcWaitTime = async (force) => { if(!force && Date.now()-lastWaitCalc<60000) return cacheWait; const rows = await all(`SELECT timestamp FROM history WHERE action='call' ORDER BY timestamp DESC LIMIT 20`); if(!rows || rows.length < 2) return (cacheWait=0); let total = 0; for(let i=0; i<rows.length-1; i++) total += (rows[i].timestamp - rows[i+1].timestamp); return (lastWaitCalc=Date.now(), cacheWait = Math.ceil((total / (rows.length - 1) / 60000) * 10) / 10); };
+// --- 優化後的等待時間演算法 ---
+const calcWaitTime = async (force) => {
+    // 1. 快取檢查 (60秒更新一次)
+    if (!force && Date.now() - lastWaitCalc < 60000) return cacheWait;
 
+    // 2. 取出最近 30 筆叫號紀錄 (增加樣本數以應對過濾)
+    const rows = await all(`SELECT timestamp FROM history WHERE action='call' ORDER BY timestamp DESC LIMIT 30`);
+    
+    // 3. 若資料不足，回傳 0
+    if (!rows || rows.length < 2) return (cacheWait = 0);
+
+    let validIntervals = [];
+    // 設定合理的服務時間範圍 (毫秒)
+    const MIN_MS = 10 * 1000;      // 10秒 (排除誤按)
+    const MAX_MS = 10 * 60 * 1000; // 10分鐘 (排除休息/暫停)
+
+    for (let i = 0; i < rows.length - 1; i++) {
+        // 計算兩次叫號的時間差 (較新的時間 - 較舊的時間)
+        const diff = rows[i].timestamp - rows[i + 1].timestamp;
+
+        // 4. 核心邏輯：只採樣「合理服務時間」內的數據
+        if (diff >= MIN_MS && diff <= MAX_MS) {
+            validIntervals.push(diff);
+        }
+    }
+
+    // 5. 如果有效樣本太少 (例如剛開門或都在休息)，回傳目前快取值或預設 0
+    if (validIntervals.length === 0) {
+        lastWaitCalc = Date.now();
+        // 若完全無有效數據，保持舊值，若無舊值則歸零
+        return cacheWait || 0; 
+    }
+
+    // 6. 計算平均值
+    const total = validIntervals.reduce((acc, val) => acc + val, 0);
+    const avgMs = total / validIntervals.length;
+
+    // 更新快取與時間戳
+    lastWaitCalc = Date.now();
+    
+    // 轉換為分鐘，並無條件進位到小數點後一位 (避免過度樂觀的預估)
+    cacheWait = Math.ceil((avgMs / 60000) * 10) / 10;
+    
+    return cacheWait;
+};
 // Updated isBusinessOpen for HH:MM
 const isBusinessOpen = async () => { 
     const c = JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false, start: "08:00", end: "22:00" };
