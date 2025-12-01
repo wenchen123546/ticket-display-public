@@ -1,4 +1,4 @@
-/* Server v18.12 Refactored with Granular Permissions (View/Edit Separation) & HH:MM Support */
+/* Server v18.12 - 包含讀寫分離與卡片隱藏權限控制 */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io"), Redis = require("ioredis"),
       helmet = require('helmet'), rateLimit = require('express-rate-limit'), { v4: uuidv4 } = require('uuid'),
@@ -8,26 +8,31 @@ const { Server } = require("http"), express = require("express"), socketio = req
 const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN: LAT, LINE_CHANNEL_SECRET: LCS, ALLOWED_ORIGINS } = process.env;
 if (!ADMIN_TOKEN || !REDIS_URL) { console.error("❌ Missing ADMIN_TOKEN or REDIS_URL"); process.exit(1); }
 
-// --- Consts & Keys ---
 const DB_FLUSH_INTERVAL = 5000;
 
-// 更新後的權限設定：區分 View (檢視) 與 Edit (修改)
+/* * 權限設定說明：
+ * - _view 結尾：擁有此權限才能「看到」該功能的卡片或列表 (控制顯示/隱藏)
+ * - _edit 結尾：擁有此權限才能「執行」新增、修改、刪除 (控制按鈕可用性)
+ */
 const DEFAULT_ROLES = { 
     OPERATOR: { 
         level: 1, 
+        // 操作員：只能看到指揮中心、發號、過號、預約列表
         can: ['perm_command', 'perm_issue', 'perm_passed_view', 'perm_passed_edit', 'perm_booking_view'] 
     }, 
     MANAGER: { 
         level: 2, 
+        // 經理：可以看到所有報表與設定(View)，但只能操作部分功能
         can: [
             'perm_command', 'perm_issue', 
             'perm_passed_view', 'perm_passed_edit', 
             'perm_booking_view', 'perm_booking_edit',
-            'perm_stats_view', 'perm_logs_view', 
-            'perm_system_view', // 經理可檢視系統設定，不可修改
+            'perm_stats_view', // 可看報表
+            'perm_logs_view',  // 可看日誌
+            'perm_system_view', // 可看系統設定 (但不可改)
             'perm_links_view', 'perm_links_edit',
             'perm_online_view', 
-            'perm_users_view' // 經理可檢視帳號列表，不可新增/修改
+            'perm_users_view'  // 可看帳號列表 (但不可增刪)
         ] 
     }, 
     ADMIN: { 
@@ -38,7 +43,6 @@ const DEFAULT_ROLES = {
 
 const KEYS = { CURRENT: 'callsys:number', ISSUED: 'callsys:issued', MODE: 'callsys:mode', PASSED: 'callsys:passed', FEATURED: 'callsys:featured', LOGS: 'callsys:admin-log', USERS: 'callsys:users', NICKS: 'callsys:nicknames', USER_ROLES: 'callsys:user_roles', SESSION: 'callsys:session:', HISTORY: 'callsys:stats:history', HOURLY: 'callsys:stats:hourly:', ROLES: 'callsys:config:roles', HOURS: 'callsys:config:hours', LINE: { SUB: 'callsys:line:notify:', USER: 'callsys:line:user:', PWD: 'callsys:line:unlock_pwd', ADMIN: 'callsys:line:admin_session:', CTX: 'callsys:line:context:', ACTIVE: 'callsys:line:active_subs_set', CFG_TOKEN: 'callsys:line:cfg:token', CFG_SECRET: 'callsys:line:cfg:secret', MSG: { APPROACH: 'callsys:line:msg:approach', ARRIVAL: 'callsys:line:msg:arrival', SUCCESS: 'callsys:line:msg:success', PASSED: 'callsys:line:msg:passed', CANCEL: 'callsys:line:msg:cancel', DEFAULT: 'callsys:line:msg:default', HELP: 'callsys:line:msg:help', LOGIN_PROMPT: 'callsys:line:msg:login_prompt', LOGIN_SUCCESS: 'callsys:line:msg:login_success', NO_TRACKING: 'callsys:line:msg:no_tracking', NO_PASSED: 'callsys:line:msg:no_passed', PASSED_PREFIX: 'callsys:line:msg:passed_prefix' }, CMD: { LOGIN: 'callsys:line:cmd:login', STATUS: 'callsys:line:cmd:status', CANCEL: 'callsys:line:cmd:cancel', PASSED: 'callsys:line:cmd:passed', HELP: 'callsys:line:cmd:help' }, AUTOREPLY: 'callsys:line:autoreply_rules' } };
 
-// --- Init ---
 app.disable('x-powered-by'); app.use(helmet({ contentSecurityPolicy: false })); app.use(express.static(path.join(__dirname, "public")));
 const server = Server(app), io = socketio(server, { cors: { origin: ALLOWED_ORIGINS ? ALLOWED_ORIGINS.split(',') : ["http://localhost:3000"], methods: ["GET", "POST"], credentials: true }, pingTimeout: 60000 });
 const redis = new Redis(REDIS_URL, { tls: { rejectUnauthorized: false }, retryStrategy: t => Math.min(t * 50, 2000) });
@@ -56,7 +60,6 @@ redis.defineCommand("safeNextNumber", { numberOfKeys: 2, lua: `return (tonumber(
 redis.defineCommand("decrIfPositive", { numberOfKeys: 1, lua: `local v=tonumber(redis.call("GET",KEYS[1])) return (v and v>0) and redis.call("DECR",KEYS[1]) or (v or 0)` });
 (async() => { if (!(await redis.exists(KEYS.ROLES))) await redis.set(KEYS.ROLES, JSON.stringify(DEFAULT_ROLES)); })();
 
-// --- Helpers ---
 const getTWTime = () => { const p = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit'}).formatToParts(new Date()); return { dateStr: `${p[0].value}-${p[2].value}-${p[4].value}`, hour: parseInt(p[6].value)%24 }; };
 const addLog = async (n, m) => { const t = new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}); await redis.lpush(KEYS.LOGS, `[${t}] [${n}] ${m}`); await redis.ltrim(KEYS.LOGS, 0, 99); io.to("admin").emit("newAdminLog", `[${t}] [${n}] ${m}`); };
 const parseCookie = s => s.split(';').reduce((a, v) => { const [k, val] = v.split('=').map(x=>x.trim()); a[k] = decodeURIComponent(val); return a; }, {});
@@ -82,7 +85,6 @@ const calcWaitTime = async (force) => {
     return cacheWait;
 };
 
-// Updated isBusinessOpen for HH:MM
 const isBusinessOpen = async () => { 
     const c = JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false, start: "08:00", end: "22:00" };
     if (!c.enabled) return true;
@@ -96,7 +98,6 @@ const isBusinessOpen = async () => {
 
 async function checkLine(c) { if(!lineClient) return; const t=c+5, [ap, ar, s5, s0] = await Promise.all([redis.get(KEYS.LINE.MSG.APPROACH), redis.get(KEYS.LINE.MSG.ARRIVAL), redis.smembers(`${KEYS.LINE.SUB}${t}`), redis.smembers(`${KEYS.LINE.SUB}${c}`)]); const send = (ids,txt) => { while(ids.length) lineClient.multicast(ids.splice(0,500),[{type:'text',text:txt}]).catch(console.error); }; if(s5.length) send(s5, (ap||'🔔 {target}號快到了 (前方剩{diff}組)').replace(/{current}/g,c).replace(/{target}/g,t).replace(/{diff}/g,5)); if(s0.length) { send(s0, (ar||'🎉 {current}號 到您了！請前往櫃台').replace(/{current}/g,c)); await redis.multi().del(`${KEYS.LINE.SUB}${c}`).srem(KEYS.LINE.ACTIVE,c).exec(); s0.forEach(u=>redis.del(`${KEYS.LINE.USER}${u}`)); } }
 
-// --- Line Webhook ---
 app.post('/callback', async (req, res) => {
     try {
         const [t, s] = await redis.mget(KEYS.LINE.CFG_TOKEN, KEYS.LINE.CFG_SECRET), cfg = { channelAccessToken: t||LAT, channelSecret: s||LCS };
@@ -128,13 +129,11 @@ app.post('/callback', async (req, res) => {
     } catch (e) { res.status(500).end(); }
 });
 
-// --- Middleware & Auth ---
 app.use(express.json()); app.set('trust proxy', 1);
 const H = fn => async(req, res, next) => { try { const r = await fn(req, res); if(r!==false) res.json(r||{success:true}); } catch(e){ res.status(500).json({error:e.message}); } };
 const auth = async(req, res, next) => { try { const t = parseCookie(req.headers.cookie||'')['token'], u = t ? JSON.parse(await redis.get(`${KEYS.SESSION}${t}`)) : null; if(!u) throw 0; req.user = u; await redis.expire(`${KEYS.SESSION}${t}`, 28800); next(); } catch(e) { res.status(403).json({error:"權限/Session失效"}); } };
 const perm = (a) => async (req, res, next) => { if(req.user.role === 'super') return next(); const r = (JSON.parse(await redis.get(KEYS.ROLES)) || DEFAULT_ROLES)[req.user.userRole || 'OPERATOR'] || DEFAULT_ROLES.OPERATOR; (r.level>=9 || r.can.includes(a) || r.can.includes('*')) ? next() : res.status(403).json({ error: "權限不足" }); };
 
-// --- Logic & Routes ---
 async function ctl(type, {body, user}) {
     if(body.number!==undefined && (isNaN(parseInt(body.number)) || body.number<0)) return { error: "非法數值" };
     const { direction: dir, number: num } = body, { dateStr, hour } = getTWTime(), curr = parseInt(await redis.get(KEYS.CURRENT))||0, issued = parseInt(await redis.get(KEYS.ISSUED))||0;
@@ -167,7 +166,6 @@ app.post("/api/ticket/take", rateLimit({windowMs:36e5,max:20}), H(async req => {
     dbQueue.push({dateStr, timestamp: Date.now(), number: t, action: 'online_take', operator: 'User', wait_time_min: await calcWaitTime()}); await broadcastQueue(); return { ticket: t };
 }));
 
-// Route Mapping with Granular Permissions
 ['call','set-call'].forEach(c => app.post(`/api/control/${c}`, auth, perm('perm_command'), H(async r => { const res = await ctl(c.replace('-','_'), r); if(res.error) throw new Error(res.error); return res; })));
 ['issue','set-issue'].forEach(c => app.post(`/api/control/${c}`, auth, perm('perm_issue'), H(async r => { const res = await ctl(c.replace('-','_'), r); if(res.error) throw new Error(res.error); return res; })));
 
@@ -183,6 +181,7 @@ app.post("/api/passed/remove", auth, perm('perm_passed_edit'), H(async r => { co
 app.post("/api/passed/clear", auth, perm('perm_passed_edit'), H(async r => { await redis.del(KEYS.PASSED); io.emit("updatePassed", []); addLog(r.user.nickname, "🗑️ 清空過號名單"); }));
 
 // --- Admin ---
+// 注意：以下路由權限已嚴格分為 _view 與 _edit
 app.post("/api/admin/users", auth, perm('perm_users_view'), H(async r => ({ users: await Promise.all([{username:'superadmin',nickname:await redis.hget(KEYS.NICKS,'superadmin')||'Super',role:'ADMIN'}, ...(await redis.hkeys(KEYS.USERS)).map(x=>({username:x}))].map(async u=>{ if(u.username!=='superadmin'){u.nickname=await redis.hget(KEYS.NICKS,u.username)||u.username; u.role=await redis.hget(KEYS.USER_ROLES,u.username)||'OPERATOR';} return u; })) })));
 app.post("/api/admin/add-user", auth, perm('perm_users_edit'), H(async r=>{ if(await redis.hexists(KEYS.USERS, r.body.newUsername)) throw new Error("已存在"); await redis.hset(KEYS.USERS, r.body.newUsername, await bcrypt.hash(r.body.newPassword,10)); await redis.hset(KEYS.NICKS, r.body.newUsername, r.body.newNickname); await redis.hset(KEYS.USER_ROLES, r.body.newUsername, r.body.newRole||'OPERATOR'); }));
 app.post("/api/admin/del-user", auth, perm('perm_users_edit'), H(async r=>{ if(r.body.delUsername==='superadmin') throw new Error("不可刪除"); await redis.hdel(KEYS.USERS, r.body.delUsername); await redis.hdel(KEYS.NICKS, r.body.delUsername); await redis.hdel(KEYS.USER_ROLES, r.body.delUsername); }));
@@ -214,10 +213,8 @@ app.post("/set-system-mode", auth, perm('perm_system_edit'), H(async r=>{ await 
 app.post("/reset", auth, perm('perm_system_edit'), H(async r => resetSys(r.user.nickname)));
 app.post("/api/admin/broadcast", auth, perm('perm_system_edit'), H(async r => { io.emit("adminBroadcast", r.body.message); addLog(r.user.nickname, `📢 廣播: ${r.body.message}`); }));
 
-// Updated API for HH:MM format (default: "08:00" - "22:00")
 app.post("/api/admin/settings/hours/get", auth, perm('perm_system_view'), H(async r => JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false, start: "08:00", end: "22:00" }));
 app.post("/api/admin/settings/hours/save", auth, perm('perm_system_edit'), H(async r => { 
-    // Save as strings, no parseInt needed for HH:MM
     const cfg = { start: r.body.start, end: r.body.end, enabled: !!r.body.enabled };
     await redis.set(KEYS.HOURS, JSON.stringify(cfg)); 
     addLog(r.user.nickname, `🔧 更新營業時間 ${cfg.start}-${cfg.end}`); 
