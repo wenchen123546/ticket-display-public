@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - Refactored with Granular Permissions
+ * 後台邏輯 (admin.js) - Refactored with Granular View/Edit Permissions
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -40,16 +40,25 @@ const updateLangUI = () => {
     $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
     $$('button[data-original-key]').forEach(b => !b.classList.contains('is-confirming') && (b.textContent = T[b.dataset.originalKey]));
     
-    // Updated permission checks
-    if(checkPerm('perm_users')) loadUsers();
-    if(checkPerm('perm_stats') || checkPerm('perm_logs')) loadStats();
-    if(checkPerm('perm_booking')) loadAppointments();
+    // Updated permission checks based on VIEW permissions
+    if(checkPerm('perm_users_view')) loadUsers();
+    if(checkPerm('perm_stats_view') || checkPerm('perm_logs_view')) loadStats();
+    if(checkPerm('perm_booking_view')) loadAppointments();
     if(isSuperAdmin() || checkPerm('perm_roles')) loadRoles();
-    if(checkPerm('perm_links')) req("/api/featured/get").then(l => renderList("featured-list-ui", l, renderFeaturedItem)); 
-    initBusinessHoursUI(); // Checks perm_system internally
+    if(checkPerm('perm_links_view')) req("/api/featured/get").then(l => renderList("featured-list-ui", l, renderFeaturedItem)); 
+    initBusinessHoursUI(); 
 
-    if($("section-settings").classList.contains("active") && checkPerm('perm_line')) { cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands(); }
+    if($("section-settings").classList.contains("active") && checkPerm('perm_line_view')) { cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands(); }
     if(username) $("sidebar-user-info").textContent = username;
+
+    // Global UI State based on EDIT permissions
+    const canSysEdit = checkPerm('perm_system_edit');
+    if($("public-toggle")) $("public-toggle").disabled = !canSysEdit;
+    if($("sound-toggle")) $("sound-toggle").disabled = !canSysEdit;
+    $$('input[name="systemMode"]').forEach(r => r.disabled = !canSysEdit);
+    ["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
+        if($(id)) $(id).style.display = (isSuperAdmin() || checkPerm('perm_system_edit') || checkPerm('perm_logs_edit') || checkPerm('perm_stats_edit') || checkPerm('perm_links_edit') || checkPerm('perm_line_edit')) ? "block" : "none";
+    });
 };
 
 const renderList = (ulId, list, fn, emptyMsgKey="empty") => {
@@ -79,18 +88,9 @@ const checkSession = async () => {
     if(uniqueUser) {
         $("login-container").style.display="none"; $("admin-panel").style.display="flex"; $("sidebar-user-info").textContent = username;
         globalRoleConfig = await req("/api/admin/roles/get");
+        // Visibility based on data-perm in HTML
         $$('[data-perm]').forEach(el => el.style.display = checkPerm(el.getAttribute('data-perm')) ? (el.classList.contains('admin-card')?'flex':'') : 'none');
         updateLangUI(); socket.connect(); upgradeSystemModeUI(); initBusinessHoursUI();
-        // Specific elements that need SuperAdmin or Role management perm
-        ["btn-export-csv", "mode-switcher-group", "unlock-pwd-group", 'resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => {
-            if($(id)) {
-                // Some resets are tied to perm_system, others to stats/logs. 
-                // For simplicity, super admin sees all, others depend on visibility of parent card mainly, 
-                // but some critical resets might need extra check.
-                // The display logic above (data-perm on cards) handles most visibility.
-                $(id).style.display = (isSuperAdmin() || checkPerm('perm_system') || checkPerm('perm_logs') || checkPerm('perm_stats')) ? "block" : "none";
-            }
-        });
         if($("card-role-management")) $("card-role-management").style.display = (isSuperAdmin() || checkPerm('perm_roles')) ? "flex" : "none";
     } else { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); }
 };
@@ -100,22 +100,23 @@ function upgradeSystemModeUI() {
     const radios = c.querySelectorAll('input[type="radio"]'); if(radios.length<2) return;
     const w = mk('div', 'segmented-control');
     radios.forEach(r => {
-        const lbl = mk('label', 'segmented-option', T[r.value==='ticketing'?'mode_online':'mode_manual']||r.value, {onclick:()=>{ if(!r.checked){r.checked=true;r.dispatchEvent(new Event('change'));} updateSegmentedVisuals(w); }});
+        const lbl = mk('label', 'segmented-option', T[r.value==='ticketing'?'mode_online':'mode_manual']||r.value, {onclick:()=>{ if(!r.disabled && !r.checked){r.checked=true;r.dispatchEvent(new Event('change'));} updateSegmentedVisuals(w); }});
         lbl.dataset.i18n = r.value==='ticketing'?'mode_online':'mode_manual'; w.appendChild(lbl); lbl.appendChild(r);
     });
     c.innerHTML=''; const t=c.querySelector('label:not(.segmented-option)'); if(t) c.appendChild(t); c.appendChild(w); updateSegmentedVisuals(w);
 }
 const updateSegmentedVisuals = (w) => w.querySelectorAll('input[type="radio"]').forEach(r => r.closest('.segmented-option').classList.toggle('active', r.checked));
 
-// --- Updated Business Hours UI with perm_system check ---
+// --- Updated Business Hours UI with perm_system_edit check ---
 async function initBusinessHoursUI() {
-    if(!checkPerm('perm_system') || !$("card-sys") || $("business-hours-group")) return;
+    if(!checkPerm('perm_system_view') || !$("card-sys") || $("business-hours-group")) return;
     
+    const canEdit = checkPerm('perm_system_edit');
     const inputStyle = "flex:1; min-width:130px; text-align:center; padding:0 5px; height:42px;";
     
-    const t = mk("input","toggle-switch",null,{type:"checkbox",id:"bh-enabled", style:"flex-shrink:0;"}), 
-          s = mk("input",null,null,{type:"time",id:"bh-start",style:inputStyle}), 
-          e = mk("input",null,null,{type:"time",id:"bh-end",style:inputStyle});
+    const t = mk("input","toggle-switch",null,{type:"checkbox",id:"bh-enabled", style:"flex-shrink:0;", disabled:!canEdit}), 
+          s = mk("input",null,null,{type:"time",id:"bh-start",style:inputStyle, disabled:!canEdit}), 
+          e = mk("input",null,null,{type:"time",id:"bh-end",style:inputStyle, disabled:!canEdit});
     
     const ctr = mk("div","control-group",null,{id:"business-hours-group",style:"margin-top:10px;border-top:1px dashed var(--border-color);padding-top:15px;"}, [
         mk("label",null,"營業時間控制"), 
@@ -123,13 +124,17 @@ async function initBusinessHoursUI() {
             t, 
             mk("div",null,null,{style:"display:flex;flex:1;gap:8px;align-items:center;min-width:280px;"}, [
                 s, mk("span",null,"➜",{style:"color:var(--text-sub);font-weight:bold;"}), e
-            ]),
-            mk("button","btn-secondary success","儲存",{
-                style:"padding:0 24px;height:42px;flex-shrink:0;", 
-                onclick:async()=>await req("/api/admin/settings/hours/save",{enabled:t.checked,start:s.value,end:e.value}) && toast(T.saved,"success")
-            })
+            ])
         ])
     ]);
+    
+    if(canEdit) {
+        ctr.children[1].appendChild(mk("button","btn-secondary success","儲存",{
+            style:"padding:0 24px;height:42px;flex-shrink:0;", 
+            onclick:async()=>await req("/api/admin/settings/hours/save",{enabled:t.checked,start:s.value,end:e.value}) && toast(T.saved,"success")
+        }));
+    }
+
     const r=$("resetAll"); r ? $("card-sys").insertBefore(ctr,r) : $("card-sys").appendChild(ctr);
     
     req("/api/admin/settings/hours/get").then(d=>{ 
@@ -146,43 +151,62 @@ async function loadLineMessages() {
     ["success","approach","arrival","passed","cancel","help","loginPrompt","loginSuccess","noTracking","noPassed","passedPrefix"].forEach(k => { if($(`msg-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}`)) $(`msg-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}`).value = d[k]||""; });
 }
 async function loadLineSystemCommands() {
+    const canEdit = checkPerm('perm_line_edit');
     if(!$("line-cmd-section")) {
         const p = $("msg-success")?.closest('.admin-card'); if(p && $("line-default-msg")) {
+            const btn = mk("button","btn-secondary success","儲存",{id:"btn-save-cmd",onclick:async()=>await req("/api/admin/line-system-keywords/save",{login:$("cmd-login").value,status:$("cmd-status").value,cancel:$("cmd-cancel").value,passed:$("cmd-passed").value,help:$("cmd-help").value},$("btn-save-cmd")) && toast(T.saved,"success")});
+            if(!canEdit) btn.style.display = "none";
+
             p.insertBefore(mk("div",null,null,{id:"line-cmd-section",style:"margin:20px 0;padding-top:20px;border-top:1px dashed var(--border-color);"},[
                 mk("h4",null,"🤖 系統指令設定",{style:"margin:0 0 15px 0;color:var(--text-main);"}),
-                ...[["login","後台登入"],["status","查詢狀態"],["passed","過號名單"],["help","設定提醒說明"]].map(([k,l])=>mk("div","control-group",null,{},[mk("label",null,`${l} (預設)`), mk("input",null,null,{id:`cmd-${k}`,type:"text"})])),
-                mk("div","control-group",null,{},[mk("label",null,"取消追蹤"), mk("div","input-group",null,{},[mk("input",null,null,{id:"cmd-cancel"}), mk("button","btn-secondary success","儲存",{id:"btn-save-cmd",onclick:async()=>await req("/api/admin/line-system-keywords/save",{login:$("cmd-login").value,status:$("cmd-status").value,cancel:$("cmd-cancel").value,passed:$("cmd-passed").value,help:$("cmd-help").value},$("btn-save-cmd")) && toast(T.saved,"success")})])])
+                ...[["login","後台登入"],["status","查詢狀態"],["passed","過號名單"],["help","設定提醒說明"]].map(([k,l])=>mk("div","control-group",null,{},[mk("label",null,`${l} (預設)`), mk("input",null,null,{id:`cmd-${k}`,type:"text", disabled:!canEdit})])),
+                mk("div","control-group",null,{},[mk("label",null,"取消追蹤"), mk("div","input-group",null,{},[mk("input",null,null,{id:"cmd-cancel", disabled:!canEdit}), btn])])
             ]), $("line-default-msg").closest('.control-group').parentElement.nextSibling);
         }
     }
     const d = await req("/api/admin/line-system-keywords/get"); if(d) ["login","status","cancel","passed","help"].forEach(k => $(`cmd-${k}`) && ($(`cmd-${k}`).value = d[k]));
 }
 async function loadLineAutoReplies() {
-    if(!$("line-autoreply-list")) return; req("/api/admin/line-default-reply/get").then(r => $("line-default-msg") && ($("line-default-msg").value = r.reply||""));
+    if(!$("line-autoreply-list")) return; 
+    const canEdit = checkPerm('perm_line_edit');
+    req("/api/admin/line-default-reply/get").then(r => $("line-default-msg") && ($("line-default-msg").value = r.reply||""));
+    
     renderList("line-autoreply-list", Object.entries(await req("/api/admin/line-autoreply/list")||{}), ([key, reply]) => {
         const form = mk("div","edit-form-wrapper",null,{style:"display:none;width:100%;gap:8px;align-items:flex-start;"}, [
             mk("input",null,null,{value:key,placeholder:"Key",style:"flex:1;"}), mk("textarea","multi-line-input",null,{value:reply,placeholder:"Reply",style:"flex:2;min-height:80px;"}),
             mk("div","edit-form-actions",null,{},[mk("button","btn-secondary",T.cancel,{onclick:e=>{e.stopPropagation();form.style.display="none";view.style.display="flex";acts.style.display="flex";}}), mk("button","btn-secondary success",T.save,{onclick:async e=>{e.stopPropagation(); if(await req("/api/admin/line-autoreply/edit",{oldKeyword:key,newKeyword:form.children[0].value,newReply:form.children[1].value})) { toast(T.saved,"success"); loadLineAutoReplies(); } }})])
         ]);
         const view = mk("div","list-info",null,{},[mk("span","list-main-text",key,{style:"color:var(--primary);font-weight:bold;"}), mk("span","list-sub-text",reply)]);
-        const acts = mk("div","list-actions",null,{},[mk("button","btn-action-icon","✎",{title:T.edit,onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}), (b=>{confirmBtn(b,"✕",async()=>{await req("/api/admin/line-autoreply/del",{keyword:key});loadLineAutoReplies();}); b.className="btn-action-icon danger"; b.title=T.del; return b;})(mk("button"))]);
+        const acts = mk("div","list-actions",null,{},[]);
+        if(canEdit) {
+            acts.appendChild(mk("button","btn-action-icon","✎",{title:T.edit,onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}));
+            acts.appendChild((b=>{confirmBtn(b,"✕",async()=>{await req("/api/admin/line-autoreply/del",{keyword:key});loadLineAutoReplies();}); b.className="btn-action-icon danger"; b.title=T.del; return b;})(mk("button")));
+        }
         return mk("li","list-item",null,{style:"flex-wrap:wrap;align-items:flex-start;"},[view,acts,form]);
     });
 }
 
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => $("status-bar").classList.add("visible"));
-socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); if(checkPerm('perm_stats')) loadStats(); });
-socket.on("update", n => { $("number").textContent=n; if(checkPerm('perm_stats')) loadStats(); });
-socket.on("initAdminLogs", l => checkPerm('perm_logs') && renderLogs(l, true));
-socket.on("newAdminLog", l => checkPerm('perm_logs') && renderLogs([l], false));
+socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); if(checkPerm('perm_stats_view')) loadStats(); });
+socket.on("update", n => { $("number").textContent=n; if(checkPerm('perm_stats_view')) loadStats(); });
+socket.on("initAdminLogs", l => checkPerm('perm_logs_view') && renderLogs(l, true));
+socket.on("newAdminLog", l => checkPerm('perm_logs_view') && renderLogs([l], false));
 socket.on("updatePublicStatus", b => $("public-toggle") && ($("public-toggle").checked = b));
 socket.on("updateSoundSetting", b => $("sound-toggle") && ($("sound-toggle").checked = b));
 socket.on("updateSystemMode", m => { $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m)); const w = document.querySelector('.segmented-control'); if(w) updateSegmentedVisuals(w); });
-socket.on("updateAppointments", l => checkPerm('perm_booking') && renderAppointments(l));
-socket.on("updatePassed", l => renderList("passed-list-ui", l, n => mk("li","list-item",null,{},[mk("span","list-main-text",`${n} 號`,{style:"font-size:1rem;color:var(--primary);"}), mk("div","list-actions",null,{},[mk("button","btn-secondary",T.recall,{onclick:()=>{if(confirm(T.msg_recall_confirm.replace('%s',n))) req("/api/control/recall-passed",{number:n});}}), (b=>{confirmBtn(b,T.del,()=>req("/api/passed/remove",{number:n}));return b;})(mk("button","btn-secondary",T.del))])]), "empty"));
-socket.on("updateFeaturedContents", l => checkPerm('perm_links') && renderList("featured-list-ui", l, renderFeaturedItem, "empty"));
-socket.on("updateOnlineAdmins", l => checkPerm('perm_online') && renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => {
+socket.on("updateAppointments", l => checkPerm('perm_booking_view') && renderAppointments(l));
+socket.on("updatePassed", l => renderList("passed-list-ui", l, n => {
+    const canEdit = checkPerm('perm_passed_edit');
+    const acts = mk("div","list-actions",null,{},[]);
+    if(canEdit) {
+        acts.appendChild(mk("button","btn-secondary",T.recall,{onclick:()=>{if(confirm(T.msg_recall_confirm.replace('%s',n))) req("/api/control/recall-passed",{number:n});}}));
+        acts.appendChild((b=>{confirmBtn(b,T.del,()=>req("/api/passed/remove",{number:n}));return b;})(mk("button","btn-secondary",T.del)));
+    }
+    return mk("li","list-item",null,{},[mk("span","list-main-text",`${n} 號`,{style:"font-size:1rem;color:var(--primary);"}), acts]);
+}, "empty"));
+socket.on("updateFeaturedContents", l => checkPerm('perm_links_view') && renderList("featured-list-ui", l, renderFeaturedItem, "empty"));
+socket.on("updateOnlineAdmins", l => checkPerm('perm_online_view') && renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => {
     const rC=(u.userRole||u.role||'OPERATOR').toLowerCase(), rL=rC.includes('admin')?'ADMIN':(rC.includes('manager')?'MANAGER':'OPERATOR');
     return mk("li","user-card-item online-mode",null,{},[mk("div","user-card-header",null,{},[mk("div","user-avatar-fancy",(u.nickname||u.username).charAt(0).toUpperCase(),{style:`background:linear-gradient(135deg, hsl(${u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360},75%,60%), hsl(${(u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360},75%,50%))`}), mk("div","user-info-fancy",null,{},[mk("div","user-nick-fancy",null,{},[mk("span","status-pulse-indicator"),mk("span",null,u.nickname||u.username)]), mk("div","user-id-fancy",`IP/ID: @${u.username}`), mk("div",`role-badge-fancy ${rC.includes('admin')?'admin':rC}`,rL)])]), mk("div","user-card-actions",null,{style:"justify-content:flex-end;opacity:0.7;font-size:0.8rem;"},[mk("span",null,"🟢 Active Now")])]);
 }, "loading"));
@@ -194,47 +218,73 @@ socket.on("updateBusinessHours", cfg => {
 });
 
 const renderFeaturedItem = (item) => {
+    const canEdit = checkPerm('perm_links_edit');
     const view = mk("div","list-info",null,{},[mk("span","list-main-text",item.linkText),mk("span","list-sub-text",item.linkUrl)]), form = mk("div","edit-form-wrapper",null,{style:"display:none;position:relative;"},[mk("input",null,null,{value:item.linkText}),mk("input",null,null,{value:item.linkUrl}),mk("div","edit-form-actions",null,{},[mk("button","btn-secondary",T.cancel,{onclick:()=>{form.style.display="none";view.style.display="flex";acts.style.display="flex";}}),mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/featured/edit",{oldLinkText:item.linkText,oldLinkUrl:item.linkUrl,newLinkText:form.children[0].value,newLinkUrl:form.children[1].value})) toast(T.saved,"success");}})])]);
-    const acts = mk("div","list-actions",null,{},[mk("button","btn-secondary",T.edit,{onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}),mk("button","btn-secondary",T.del,{onclick:()=>req("/api/featured/remove",item)})]);
+    const acts = mk("div","list-actions",null,{},[]);
+    if(canEdit) {
+        acts.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}));
+        acts.appendChild(mk("button","btn-secondary",T.del,{onclick:()=>req("/api/featured/remove",item)}));
+    }
     return mk("li","list-item",null,{},[view,acts,form]);
 };
 async function loadAppointments() { try{ renderAppointments((await req("/api/appointment/list"))?.appointments); }catch(e){} }
-function renderAppointments(list) { renderList("appointment-list-ui", list, a => mk("li","list-item",null,{},[mk("div","list-info",null,{},[mk("span","list-main-text",`${a.number} 號`,{style:"color:var(--primary);font-size:1rem;"}),mk("span","list-sub-text",`📅 ${new Date(a.scheduled_time).toLocaleString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`)]), mk("div","list-actions",null,{},[(b=>{confirmBtn(b,T.del,async()=>await req("/api/appointment/remove",{id:a.id})); return b;})(mk("button","btn-secondary",T.del))])]), "no_appt"); }
+function renderAppointments(list) { 
+    const canEdit = checkPerm('perm_booking_edit');
+    renderList("appointment-list-ui", list, a => {
+        const acts = mk("div","list-actions",null,{},[]);
+        if(canEdit) acts.appendChild((b=>{confirmBtn(b,T.del,async()=>await req("/api/appointment/remove",{id:a.id})); return b;})(mk("button","btn-secondary",T.del)));
+        return mk("li","list-item",null,{},[mk("div","list-info",null,{},[mk("span","list-main-text",`${a.number} 號`,{style:"color:var(--primary);font-size:1rem;"}),mk("span","list-sub-text",`📅 ${new Date(a.scheduled_time).toLocaleString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`)]), acts]);
+    }, "no_appt"); 
+}
 async function loadUsers() {
     const d = await req("/api/admin/users"); if(!d?.users) return;
+    const canEdit = checkPerm('perm_users_edit');
+
     renderList("user-list-ui", d.users, u => {
         const rC=(u.role||'OPERATOR').toLowerCase(), acts=mk("div","user-card-actions"), editForm=mk("div","edit-form-wrapper",null,{style:"display:none;"},[mk("h4",null,"修改暱稱",{style:"margin:0 0 10px 0;color:var(--text-main);"}), mk("input",null,null,{value:u.nickname,placeholder:T.ph_nick,style:"margin-bottom:10px;"}), mk("div","edit-form-actions",null,{},[mk("button","btn-secondary",T.cancel,{onclick:e=>{e.stopPropagation();editForm.style.display="none";}}),mk("button","btn-secondary success",T.save,{onclick:async e=>{e.stopPropagation();if(await req("/api/admin/set-nickname",{targetUsername:u.username,nickname:editForm.children[1].value})){toast(T.saved,"success");loadUsers();}}})])]);
-        if(u.username===uniqueUser || isSuperAdmin()) acts.appendChild(mk("button","btn-action-icon","✎",{title:T.edit,onclick:()=>editForm.style.display="flex"})); else acts.appendChild(mk("span"));
+        
+        if(canEdit || u.username===uniqueUser || isSuperAdmin()) acts.appendChild(mk("button","btn-action-icon","✎",{title:T.edit,onclick:()=>editForm.style.display="flex"})); else acts.appendChild(mk("span"));
+        
         if(u.username!=='superadmin' && isSuperAdmin()) {
             const roleSel = mk("select","role-select",null,{title:"變更權限",style:"height:32px;font-size:0.8rem;padding:0 8px;",onchange:async()=>{if(await req("/api/admin/set-role",{targetUsername:u.username,newRole:roleSel.value})){toast(T.saved,"success");loadUsers();}}}); ['OPERATOR','MANAGER','ADMIN'].forEach(r=>roleSel.add(new Option(r,r,false,u.role===r)));
             acts.appendChild(mk("div",null,null,{style:"display:flex;gap:8px;align-items:center;"},[roleSel, (b=>{confirmBtn(b,"✕",async()=>{await req("/api/admin/del-user",{delUsername:u.username});loadUsers();}); b.className="btn-action-icon danger"; b.title=T.del; return b;})(mk("button"))]));
         }
         return mk("li","user-card-item",null,{},[mk("div","user-card-header",null,{},[mk("div","user-avatar-fancy",(u.nickname||u.username).charAt(0).toUpperCase(),{style:`background:linear-gradient(135deg, hsl(${u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360},75%,60%), hsl(${(u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360},75%,50%))`}), mk("div","user-info-fancy",null,{},[mk("div","user-nick-fancy",u.nickname||u.username),mk("div","user-id-fancy",`@${u.username}`),mk("div",`role-badge-fancy ${rC}`,u.role==='OPERATOR'?'Op (操作員)':(u.role==='MANAGER'?'Mgr (經理)':'Adm (管理員)'))])]), acts, editForm]);
     }, "loading");
+
+    // Hide/Show Add User form based on permissions
     const ctr=$("card-user-management")?.querySelector('.admin-card'); $("add-user-container-fixed")?.remove();
-    if(ctr) {
+    if(ctr && canEdit) {
         const uIn=mk("input",null,null,{id:"new-user-username",placeholder:T.ph_account}), pIn=mk("input",null,null,{id:"new-user-password",type:"password",placeholder:"Pwd"}), nIn=mk("input",null,null,{id:"new-user-nickname",placeholder:T.ph_nick}), rIn=mk("select",null,null,{id:"new-user-role"},["Operator","Manager","Admin"].map(x=>new Option(x,x.toUpperCase())));
         ctr.appendChild(mk("div","add-user-container",null,{id:"add-user-container-fixed"},[mk("div","add-user-grid",null,{},[uIn,pIn,nIn,rIn,mk("button","btn-hero btn-add-user-fancy",`+ ${T.lbl_add_user}`,{style:"height:46px;font-size:1rem;",onclick:async()=>{if(!uIn.value||!pIn.value)return toast("請輸入帳號密碼","error"); if(await req("/api/admin/add-user",{newUsername:uIn.value,newPassword:pIn.value,newNickname:nIn.value,newRole:rIn.value})){toast(T.saved,"success");loadUsers();uIn.value=pIn.value=nIn.value="";}}})])]));
     }
 }
 
-// Updated loadRoles to display all granular permissions
+// Updated loadRoles to display granular View/Edit permissions
 async function loadRoles() {
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"), ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     
-    // Define granular permissions mapping
+    // Define granular permissions mapping (Matched with Backend index.js)
     const perms = [
         {k:'perm_command', t:'指揮中心 (叫號/重置)'},
         {k:'perm_issue',   t:'發號管理 (發號/收回)'},
-        {k:'perm_passed',  t:'過號名單 (檢視/操作)'},
-        {k:'perm_booking', t:'預約管理'},
-        {k:'perm_stats',   t:'流量分析 (圖表)'},
-        {k:'perm_logs',    t:'操作日誌 (檢視/清除)'},
-        {k:'perm_system',  t:'系統設定 (開關/廣播)'},
-        {k:'perm_links',   t:'連結管理'},
-        {k:'perm_line',    t:'LINE 設定'},
-        {k:'perm_online',  t:'在線管理 (查看人員)'},
-        {k:'perm_users',   t:'帳號管理 (新增/修改)'},
+        {k:'perm_passed_view',  t:'過號名單 (檢視)'},
+        {k:'perm_passed_edit',  t:'過號名單 (操作)'},
+        {k:'perm_booking_view', t:'預約管理 (檢視)'},
+        {k:'perm_booking_edit', t:'預約管理 (操作)'},
+        {k:'perm_stats_view',   t:'流量分析 (檢視)'},
+        {k:'perm_stats_edit',   t:'流量分析 (校正/清空)'},
+        {k:'perm_logs_view',    t:'操作日誌 (檢視)'},
+        {k:'perm_logs_edit',    t:'操作日誌 (清除)'},
+        {k:'perm_system_view',  t:'系統設定 (檢視)'},
+        {k:'perm_system_edit',  t:'系統設定 (修改)'},
+        {k:'perm_links_view',   t:'連結管理 (檢視)'},
+        {k:'perm_links_edit',   t:'連結管理 (修改)'},
+        {k:'perm_line_view',    t:'LINE 設定 (檢視)'},
+        {k:'perm_line_edit',    t:'LINE 設定 (修改)'},
+        {k:'perm_online_view',  t:'在線管理 (查看人員)'},
+        {k:'perm_users_view',   t:'帳號管理 (檢視)'},
+        {k:'perm_users_edit',   t:'帳號管理 (新增/修改)'},
         {k:'perm_roles',   t:'權限設定 (僅管理員)'}
     ];
 
@@ -248,16 +298,19 @@ async function loadStats() {
         if (d?.hourlyCounts) {
             if ($("stats-today-count")) $("stats-today-count").textContent = d.todayCount || 0;
             const chart=$("hourly-chart"), max=Math.max(...d.hourlyCounts, 1); chart.innerHTML="";
-            d.hourlyCounts.forEach((v, i) => chart.appendChild(mk("div", `chart-col ${i===d.serverHour?'current':''}`, null, {style:`--bar-height:${v?Math.max((v/max)*75,5):0}%`, onclick:e=>{$$('.chart-col').forEach(c=>c!==e.currentTarget&&c.classList.remove('active-touch'));e.currentTarget.classList.toggle('active-touch');openStatModal(i,v);}}, [mk("div","chart-val",v||"0"),mk("div","chart-bar",null,{style:`height:${v===0?'4px':Math.max((v/max)*75,5)+'%'};${v===0?'background:var(--border-color);opacity:0.3;':''}`}),mk("div","chart-label",String(i).padStart(2,'0'))])));
+            const canEdit = checkPerm('perm_stats_edit');
+            d.hourlyCounts.forEach((v, i) => chart.appendChild(mk("div", `chart-col ${i===d.serverHour?'current':''}`, null, {style:`--bar-height:${v?Math.max((v/max)*75,5):0}%`, onclick:e=>{if(!canEdit)return;$$('.chart-col').forEach(c=>c!==e.currentTarget&&c.classList.remove('active-touch'));e.currentTarget.classList.toggle('active-touch');openStatModal(i,v);}}, [mk("div","chart-val",v||"0"),mk("div","chart-bar",null,{style:`height:${v===0?'4px':Math.max((v/max)*75,5)+'%'};${v===0?'background:var(--border-color);opacity:0.3;':''}`}),mk("div","chart-label",String(i).padStart(2,'0'))])));
             renderList("stats-list-ui", d.history || [], h => mk("li","list-item",`<span>${new Date(h.timestamp).toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit'})} - <b style="color:var(--primary)">${h.number}</b> <small style="color:var(--text-sub)">(${h.operator})</small></span>`,{isHtml:true}), "no_logs");
         }
     } catch (e) { console.error(e); }
 }
 async function loadLineSettings() { cachedLine = await req("/api/admin/line-settings/get"); renderLineSettings(); }
 function renderLineSettings() {
+    const canEdit = checkPerm('perm_line_edit');
     renderList("line-settings-list-ui", Object.keys(cachedLine||{}), k => {
         const val=cachedLine[k]||"", edit=mk("div","line-edit-box",null,{style:"display:none;width:100%;"},[mk("textarea",null,null,{value:val,placeholder:"Content..."}), mk("div",null,null,{style:"display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"},[mk("button","btn-secondary",T.cancel,{onclick:()=>{edit.style.display="none";row.style.display="flex";}}), mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[k]:edit.children[0].value})){cachedLine[k]=edit.children[0].value;toast(T.saved,"success");renderLineSettings();}}})])]);
-        const row = mk("div","line-setting-row",null,{style:"display:flex;width:100%;align-items:center;justify-content:space-between;"}, [mk("div","line-setting-info",null,{},[mk("div","line-setting-label",k.split(':').pop(),{style:"font-weight:600;"}), mk("code","line-setting-preview",val||"(未設定)",{style:val?"color:var(--text-sub);":"opacity:0.5"})]), mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}})]);
+        const row = mk("div","line-setting-row",null,{style:"display:flex;width:100%;align-items:center;justify-content:space-between;"}, [mk("div","line-setting-info",null,{},[mk("div","line-setting-label",k.split(':').pop(),{style:"font-weight:600;"}), mk("code","line-setting-preview",val||"(未設定)",{style:val?"color:var(--text-sub);":"opacity:0.5"})])]);
+        if(canEdit) row.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}}));
         return mk("li", "list-item", null, {}, [row, edit]);
     }, "empty");
     req("/api/admin/line-settings/get-unlock-pass").then(r=>{ if($("line-unlock-pwd") && r) $("line-unlock-pwd").value=r.password||""; });
@@ -302,7 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkSession(); applyTheme();
     [ $("admin-lang-selector"), $("admin-lang-selector-mobile") ].forEach(sel => { if(sel){ sel.value=curLang; sel.addEventListener("change",e=>{curLang=e.target.value;localStorage.setItem('callsys_lang',curLang);$$(".lang-sel").forEach(s=>s.value=curLang);updateLangUI();}); }});
     if($("appt-time")) flatpickr("#appt-time",{enableTime:true,dateFormat:"Y-m-d H:i",time_24hr:true,locale:"zh_tw",minDate:"today",disableMobile:"true"});
-    $$('.nav-btn').forEach(b => b.onclick = () => { $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $$('.section-group').forEach(s=>s.classList.remove('active')); const t=$(b.dataset.target); if(t){ t.classList.add('active'); if(b.dataset.target==='section-stats') loadStats(); if(b.dataset.target==='section-settings'){ loadAppointments(); loadUsers(); if(checkPerm('perm_line')){cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands();} } } });
+    $$('.nav-btn').forEach(b => b.onclick = () => { $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $$('.section-group').forEach(s=>s.classList.remove('active')); const t=$(b.dataset.target); if(t){ t.classList.add('active'); if(b.dataset.target==='section-stats') loadStats(); if(b.dataset.target==='section-settings'){ loadAppointments(); loadUsers(); if(checkPerm('perm_line_view')){cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands();} } } });
     $("sound-toggle")?.addEventListener("change",e=>req("/set-sound-enabled",{enabled:e.target.checked}));
     $("public-toggle")?.addEventListener("change",e=>req("/set-public-status",{isPublic:e.target.checked}));
     $$('input[name="systemMode"]').forEach(r=>r.onchange=()=>confirm(T.confirm+" Switch Mode?")?req("/set-system-mode",{mode:r.value}):(r.checked=!r.checked));
