@@ -372,6 +372,23 @@ input[type="radio"] { display: none; }
     #user-list-ui, #online-users-list { display: flex !important; flex-direction: column; max-height: 300px !important; overflow-y: auto !important; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-right: 4px; }
     .user-card-item { width: 100%; flex-shrink: 0; }
     .perm-table-wrapper { margin: 0 -10px; width: calc(100% + 20px); border-radius: 0; border-left: none; border-right: none; }
+
+    #section-live .dashboard-header {
+        position: sticky;
+        /* 54px 是手機版 Sidebar 的高度，env 確保避開 iPhone 瀏海 */
+        top: calc(54px + env(safe-area-inset-top)); 
+        z-index: 90;
+        background: var(--bg-body); /* 設定背景色，防止下方內容捲動時透視重疊 */
+        
+        /* 調整邊距以抵消 content-area 的 padding，讓背景滿版 */
+        margin-left: -8px !important;
+        margin-right: -8px !important;
+        padding: 8px 8px 12px 8px !important;
+        
+        /* 增加底部陰影與邊框，讓視覺分層更明顯 */
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: 0 4px 8px -2px rgba(0,0,0,0.05);
+    }
 }
 
 /* 強制將深色模式下的時鐘/日曆圖示反轉顏色 (變為白色) */
