@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - Fixed Layout & HH:MM
+ * 後台邏輯 (admin.js) - Refactored with Granular Permissions
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -39,10 +39,16 @@ const updateLangUI = () => {
     $$('[data-i18n]').forEach(e => e.textContent = T[e.getAttribute('data-i18n')]||"");
     $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
     $$('button[data-original-key]').forEach(b => !b.classList.contains('is-confirming') && (b.textContent = T[b.dataset.originalKey]));
-    if(checkPerm('users')) loadUsers(); if(checkPerm('stats')) loadStats(); if(checkPerm('appointment')) loadAppointments();
-    if(isSuperAdmin()) loadRoles();
-    if(checkPerm('settings')) { req("/api/featured/get").then(l => renderList("featured-list-ui", l, renderFeaturedItem)); initBusinessHoursUI(); }
-    if($("section-settings").classList.contains("active") && checkPerm('line')) { cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands(); }
+    
+    // Updated permission checks
+    if(checkPerm('perm_users')) loadUsers();
+    if(checkPerm('perm_stats') || checkPerm('perm_logs')) loadStats();
+    if(checkPerm('perm_booking')) loadAppointments();
+    if(isSuperAdmin() || checkPerm('perm_roles')) loadRoles();
+    if(checkPerm('perm_links')) req("/api/featured/get").then(l => renderList("featured-list-ui", l, renderFeaturedItem)); 
+    initBusinessHoursUI(); // Checks perm_system internally
+
+    if($("section-settings").classList.contains("active") && checkPerm('perm_line')) { cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands(); }
     if(username) $("sidebar-user-info").textContent = username;
 };
 
@@ -53,7 +59,17 @@ const renderList = (ulId, list, fn, emptyMsgKey="empty") => {
 };
 
 const applyTheme = () => { document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light'); ['admin-theme-toggle','admin-theme-toggle-mobile'].forEach(i=>$(i)&&($(i).textContent=isDark?'☀️':'🌙')); };
-const checkPerm = (p) => isSuperAdmin() || (globalRoleConfig && globalRoleConfig[userRole]?.can.some(x=>x==='*'||x===p));
+
+// Updated checkPerm to support multiple permissions (OR logic)
+const checkPerm = (p) => {
+    if (isSuperAdmin()) return true;
+    if (!globalRoleConfig || !globalRoleConfig[userRole]) return false;
+    const userPerms = globalRoleConfig[userRole].can || [];
+    if (userPerms.includes('*')) return true;
+    const required = p.split(',').map(s => s.trim());
+    return required.some(req => userPerms.includes(req));
+};
+
 const isSuperAdmin = () => (uniqueUser === 'superadmin' || userRole === 'super' || userRole === 'ADMIN');
 const logout = () => { localStorage.clear(); document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"; location.reload(); };
 
@@ -65,7 +81,17 @@ const checkSession = async () => {
         globalRoleConfig = await req("/api/admin/roles/get");
         $$('[data-perm]').forEach(el => el.style.display = checkPerm(el.getAttribute('data-perm')) ? (el.classList.contains('admin-card')?'flex':'') : 'none');
         updateLangUI(); socket.connect(); upgradeSystemModeUI(); initBusinessHoursUI();
-        ["card-role-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group", 'resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => $(id) && ($(id).style.display = isSuperAdmin() ? "block" : "none"));
+        // Specific elements that need SuperAdmin or Role management perm
+        ["btn-export-csv", "mode-switcher-group", "unlock-pwd-group", 'resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => {
+            if($(id)) {
+                // Some resets are tied to perm_system, others to stats/logs. 
+                // For simplicity, super admin sees all, others depend on visibility of parent card mainly, 
+                // but some critical resets might need extra check.
+                // The display logic above (data-perm on cards) handles most visibility.
+                $(id).style.display = (isSuperAdmin() || checkPerm('perm_system') || checkPerm('perm_logs') || checkPerm('perm_stats')) ? "block" : "none";
+            }
+        });
+        if($("card-role-management")) $("card-role-management").style.display = (isSuperAdmin() || checkPerm('perm_roles')) ? "flex" : "none";
     } else { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); }
 };
 
@@ -81,11 +107,10 @@ function upgradeSystemModeUI() {
 }
 const updateSegmentedVisuals = (w) => w.querySelectorAll('input[type="radio"]').forEach(r => r.closest('.segmented-option').classList.toggle('active', r.checked));
 
-// --- Updated Business Hours UI (Fixed Layout) ---
+// --- Updated Business Hours UI with perm_system check ---
 async function initBusinessHoursUI() {
-    if(!checkPerm('settings') || !$("card-sys") || $("business-hours-group")) return;
+    if(!checkPerm('perm_system') || !$("card-sys") || $("business-hours-group")) return;
     
-    // Style for time inputs: increased width to show full text (HH:MM AM/PM) and flexible
     const inputStyle = "flex:1; min-width:130px; text-align:center; padding:0 5px; height:42px;";
     
     const t = mk("input","toggle-switch",null,{type:"checkbox",id:"bh-enabled", style:"flex-shrink:0;"}), 
@@ -94,14 +119,11 @@ async function initBusinessHoursUI() {
     
     const ctr = mk("div","control-group",null,{id:"business-hours-group",style:"margin-top:10px;border-top:1px dashed var(--border-color);padding-top:15px;"}, [
         mk("label",null,"營業時間控制"), 
-        // Main container with wrap enabled for mobile
         mk("div",null,null,{style:"display:flex;gap:12px;align-items:center;flex-wrap:wrap;width:100%;"}, [
             t, 
-            // Group the time inputs together to keep them on same line if possible
             mk("div",null,null,{style:"display:flex;flex:1;gap:8px;align-items:center;min-width:280px;"}, [
                 s, mk("span",null,"➜",{style:"color:var(--text-sub);font-weight:bold;"}), e
             ]),
-            // Save button
             mk("button","btn-secondary success","儲存",{
                 style:"padding:0 24px;height:42px;flex-shrink:0;", 
                 onclick:async()=>await req("/api/admin/settings/hours/save",{enabled:t.checked,start:s.value,end:e.value}) && toast(T.saved,"success")
@@ -150,17 +172,17 @@ async function loadLineAutoReplies() {
 
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => $("status-bar").classList.add("visible"));
-socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); if(checkPerm('stats')) loadStats(); });
-socket.on("update", n => { $("number").textContent=n; if(checkPerm('stats')) loadStats(); });
-socket.on("initAdminLogs", l => checkPerm('stats') && renderLogs(l, true));
-socket.on("newAdminLog", l => checkPerm('stats') && renderLogs([l], false));
+socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); if(checkPerm('perm_stats')) loadStats(); });
+socket.on("update", n => { $("number").textContent=n; if(checkPerm('perm_stats')) loadStats(); });
+socket.on("initAdminLogs", l => checkPerm('perm_logs') && renderLogs(l, true));
+socket.on("newAdminLog", l => checkPerm('perm_logs') && renderLogs([l], false));
 socket.on("updatePublicStatus", b => $("public-toggle") && ($("public-toggle").checked = b));
 socket.on("updateSoundSetting", b => $("sound-toggle") && ($("sound-toggle").checked = b));
 socket.on("updateSystemMode", m => { $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m)); const w = document.querySelector('.segmented-control'); if(w) updateSegmentedVisuals(w); });
-socket.on("updateAppointments", l => checkPerm('appointment') && renderAppointments(l));
+socket.on("updateAppointments", l => checkPerm('perm_booking') && renderAppointments(l));
 socket.on("updatePassed", l => renderList("passed-list-ui", l, n => mk("li","list-item",null,{},[mk("span","list-main-text",`${n} 號`,{style:"font-size:1rem;color:var(--primary);"}), mk("div","list-actions",null,{},[mk("button","btn-secondary",T.recall,{onclick:()=>{if(confirm(T.msg_recall_confirm.replace('%s',n))) req("/api/control/recall-passed",{number:n});}}), (b=>{confirmBtn(b,T.del,()=>req("/api/passed/remove",{number:n}));return b;})(mk("button","btn-secondary",T.del))])]), "empty"));
-socket.on("updateFeaturedContents", l => checkPerm('settings') && renderList("featured-list-ui", l, renderFeaturedItem, "empty"));
-socket.on("updateOnlineAdmins", l => checkPerm('users') && renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => {
+socket.on("updateFeaturedContents", l => checkPerm('perm_links') && renderList("featured-list-ui", l, renderFeaturedItem, "empty"));
+socket.on("updateOnlineAdmins", l => checkPerm('perm_online') && renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => {
     const rC=(u.userRole||u.role||'OPERATOR').toLowerCase(), rL=rC.includes('admin')?'ADMIN':(rC.includes('manager')?'MANAGER':'OPERATOR');
     return mk("li","user-card-item online-mode",null,{},[mk("div","user-card-header",null,{},[mk("div","user-avatar-fancy",(u.nickname||u.username).charAt(0).toUpperCase(),{style:`background:linear-gradient(135deg, hsl(${u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360},75%,60%), hsl(${(u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360},75%,50%))`}), mk("div","user-info-fancy",null,{},[mk("div","user-nick-fancy",null,{},[mk("span","status-pulse-indicator"),mk("span",null,u.nickname||u.username)]), mk("div","user-id-fancy",`IP/ID: @${u.username}`), mk("div",`role-badge-fancy ${rC.includes('admin')?'admin':rC}`,rL)])]), mk("div","user-card-actions",null,{style:"justify-content:flex-end;opacity:0.7;font-size:0.8rem;"},[mk("span",null,"🟢 Active Now")])]);
 }, "loading"));
@@ -195,11 +217,31 @@ async function loadUsers() {
         ctr.appendChild(mk("div","add-user-container",null,{id:"add-user-container-fixed"},[mk("div","add-user-grid",null,{},[uIn,pIn,nIn,rIn,mk("button","btn-hero btn-add-user-fancy",`+ ${T.lbl_add_user}`,{style:"height:46px;font-size:1rem;",onclick:async()=>{if(!uIn.value||!pIn.value)return toast("請輸入帳號密碼","error"); if(await req("/api/admin/add-user",{newUsername:uIn.value,newPassword:pIn.value,newNickname:nIn.value,newRole:rIn.value})){toast(T.saved,"success");loadUsers();uIn.value=pIn.value=nIn.value="";}}})])]));
     }
 }
+
+// Updated loadRoles to display all granular permissions
 async function loadRoles() {
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"), ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
-    const perms = [{k:'call',t:T.perm_call},{k:'issue',t:T.perm_issue},{k:'stats',t:T.perm_stats},{k:'settings',t:T.perm_settings},{k:'appointment',t:T.perm_appointment},{k:'line',t:T.perm_line},{k:'users',t:T.perm_users}], roles = ['OPERATOR','MANAGER','ADMIN'], meta = {'OPERATOR':{icon:'🎮',l:T.role_operator,c:'role-op'},'MANAGER':{icon:'🛡️',l:T.role_manager,c:'role-mgr'},'ADMIN':{icon:'👑',l:T.role_admin,c:'role-mgr'}};
+    
+    // Define granular permissions mapping
+    const perms = [
+        {k:'perm_command', t:'指揮中心 (叫號/重置)'},
+        {k:'perm_issue',   t:'發號管理 (發號/收回)'},
+        {k:'perm_passed',  t:'過號名單 (檢視/操作)'},
+        {k:'perm_booking', t:'預約管理'},
+        {k:'perm_stats',   t:'流量分析 (圖表)'},
+        {k:'perm_logs',    t:'操作日誌 (檢視/清除)'},
+        {k:'perm_system',  t:'系統設定 (開關/廣播)'},
+        {k:'perm_links',   t:'連結管理'},
+        {k:'perm_line',    t:'LINE 設定'},
+        {k:'perm_online',  t:'在線管理 (查看人員)'},
+        {k:'perm_users',   t:'帳號管理 (新增/修改)'},
+        {k:'perm_roles',   t:'權限設定 (僅管理員)'}
+    ];
+
+    const roles = ['OPERATOR','MANAGER','ADMIN'], meta = {'OPERATOR':{icon:'🎮',l:T.role_operator,c:'role-op'},'MANAGER':{icon:'🛡️',l:T.role_manager,c:'role-mgr'},'ADMIN':{icon:'👑',l:T.role_admin,c:'role-mgr'}};
     ctr.appendChild(mk("div","perm-table-wrapper",null,{},[mk("table","perm-matrix",null,{},[mk("thead",null,null,{},[mk("tr",null,null,{},[mk("th",null,"權限項目 / 角色"), ...roles.map(r=>mk("th",`th-role ${meta[r].c}`,`<div class="th-content"><span class="th-icon">${meta[r].icon}</span><span>${meta[r].l}</span></div>`))])]), mk("tbody",null,null,{}, perms.map(p => mk("tr",null,null,{},[mk("td","td-perm-name",p.t), ...roles.map(r => mk("td","td-check",null,{},[mk("label","custom-check",null,{},[mk("input","role-chk",null,{type:"checkbox",checked:(cfg[r]?.can||[]).includes('*')||(cfg[r]?.can||[]).includes(p.k), "data-role":r, "data-perm":p.k}), mk("span","checkmark")])]))])))])]));
 }
+
 async function loadStats() {
     try {
         const d = await req("/api/admin/stats");
@@ -260,7 +302,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkSession(); applyTheme();
     [ $("admin-lang-selector"), $("admin-lang-selector-mobile") ].forEach(sel => { if(sel){ sel.value=curLang; sel.addEventListener("change",e=>{curLang=e.target.value;localStorage.setItem('callsys_lang',curLang);$$(".lang-sel").forEach(s=>s.value=curLang);updateLangUI();}); }});
     if($("appt-time")) flatpickr("#appt-time",{enableTime:true,dateFormat:"Y-m-d H:i",time_24hr:true,locale:"zh_tw",minDate:"today",disableMobile:"true"});
-    $$('.nav-btn').forEach(b => b.onclick = () => { $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $$('.section-group').forEach(s=>s.classList.remove('active')); const t=$(b.dataset.target); if(t){ t.classList.add('active'); if(b.dataset.target==='section-stats') loadStats(); if(b.dataset.target==='section-settings'){ loadAppointments(); loadUsers(); if(checkPerm('line')){cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands();} } } });
+    $$('.nav-btn').forEach(b => b.onclick = () => { $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $$('.section-group').forEach(s=>s.classList.remove('active')); const t=$(b.dataset.target); if(t){ t.classList.add('active'); if(b.dataset.target==='section-stats') loadStats(); if(b.dataset.target==='section-settings'){ loadAppointments(); loadUsers(); if(checkPerm('perm_line')){cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands();} } } });
     $("sound-toggle")?.addEventListener("change",e=>req("/set-sound-enabled",{enabled:e.target.checked}));
     $("public-toggle")?.addEventListener("change",e=>req("/set-public-status",{isPublic:e.target.checked}));
     $$('input[name="systemMode"]').forEach(r=>r.onchange=()=>confirm(T.confirm+" Switch Mode?")?req("/set-system-mode",{mode:r.value}):(r.checked=!r.checked));
