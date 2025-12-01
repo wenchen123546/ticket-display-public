@@ -31,9 +31,9 @@
     <aside class="sidebar">
         <div class="sidebar-header"><div class="logo">⚡ <span data-i18n="admin_panel">管理後台</span></div><div id="sidebar-user-info" style="font-size:0.85rem; color:var(--text-sub);">Admin</div></div>
         <nav class="sidebar-nav">
-            <button class="nav-btn active" data-target="section-live" data-perm="call"><span class="nav-icon">🎮</span> <span data-i18n="nav_live">現場控台</span></button>
-            <button class="nav-btn" data-target="section-stats" data-perm="stats"><span class="nav-icon">📈</span> <span data-i18n="nav_stats">數據報表</span></button>
-            <button class="nav-btn" data-target="section-settings" data-perm="settings"><span class="nav-icon">⚙️</span> <span data-i18n="nav_settings">系統設定</span></button>
+            <button class="nav-btn active" data-target="section-live" data-perm="perm_command,perm_issue,perm_passed"><span class="nav-icon">🎮</span> <span data-i18n="nav_live">現場控台</span></button>
+            <button class="nav-btn" data-target="section-stats" data-perm="perm_stats,perm_logs"><span class="nav-icon">📈</span> <span data-i18n="nav_stats">數據報表</span></button>
+            <button class="nav-btn" data-target="section-settings" data-perm="perm_system,perm_links,perm_users,perm_roles,perm_online,perm_line,perm_booking"><span class="nav-icon">⚙️</span> <span data-i18n="nav_settings">系統設定</span></button>
         </nav>
         <div class="sidebar-footer">
             <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -53,7 +53,7 @@
             </div>
 
             <div class="card-container">
-                <div class="card-wrapper" data-perm="call">
+                <div class="card-wrapper" data-perm="perm_command">
                     <div class="admin-card control-deck">
                         <h3><span class="card-icon">📢</span> <span data-i18n="card_call">指揮中心</span></h3>
                         <div class="hero-control-row"><button id="btn-call-next" class="btn-hero" data-i18n="btn_next">下一號 ▶</button></div>
@@ -73,7 +73,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" data-perm="issue">
+                <div class="card-wrapper" data-perm="perm_issue">
                     <div class="admin-card">
                         <h3><span class="card-icon">🎟️</span> <span data-i18n="card_issue">發號管理</span></h3>
                         <div class="big-action-row">
@@ -88,7 +88,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" data-perm="call">
+                <div class="card-wrapper" data-perm="perm_passed">
                     <div class="admin-card">
                         <h3><span class="card-icon">📝</span> <span data-i18n="card_passed">過號名單</span></h3>
                         <div class="list-container"><ul id="passed-list-ui" class="scroll-list"></ul></div>
@@ -104,7 +104,7 @@
 
         <div id="section-stats" class="section-group">
             <div class="card-container">
-                <div class="card-wrapper" data-perm="stats">
+                <div class="card-wrapper" data-perm="perm_stats">
                     <div class="admin-card">
                         <h3><span class="card-icon">📊</span> <span data-i18n="card_stats">流量分析</span></h3>
                         <div class="dashboard-header" style="margin-bottom:10px; grid-template-columns: 1fr auto;">
@@ -119,7 +119,7 @@
                         <button id="btn-clear-stats" class="btn-reset-single" style="margin-top:15px;" data-i18n="btn_clear_stats">🗑️ 清空統計</button>
                     </div>
                 </div>
-                <div class="card-wrapper" data-perm="stats">
+                <div class="card-wrapper" data-perm="perm_logs">
                     <div class="admin-card">
                         <h3><span class="card-icon">📋</span> <span data-i18n="card_logs">操作日誌</span></h3>
                         <div class="list-container"><ul id="admin-log-ui" class="scroll-list"><li>Wait...</li></ul></div>
@@ -131,7 +131,7 @@
 
         <div id="section-settings" class="section-group">
             <div class="card-container">
-                <div class="card-wrapper" data-perm="settings">
+                <div class="card-wrapper" data-perm="perm_system">
                     <div class="admin-card" id="card-sys">
                         <h3><span class="card-icon">⚙️</span> <span data-i18n="card_sys">系統</span></h3>
                         <div class="settings-grid">
@@ -160,7 +160,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" data-perm="settings">
+                <div class="card-wrapper" data-perm="perm_links">
                     <div class="admin-card">
                         <h3><span class="card-icon">🔗</span> <span data-i18n="card_links">連結管理</span></h3>
                         <div class="list-container"><ul id="featured-list-ui" class="scroll-list"></ul></div>
@@ -173,14 +173,14 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" data-perm="users">
+                <div class="card-wrapper" data-perm="perm_online">
                     <div class="admin-card">
                         <h3><span class="card-icon">🟢</span> <span data-i18n="card_online">在線管理</span></h3>
                         <div class="list-container"><ul id="online-users-list" class="scroll-list"><li>Loading...</li></ul></div>
                     </div>
                 </div>
 
-                <div class="card-wrapper" id="card-user-management" style="display:none;" data-perm="users">
+                <div class="card-wrapper" id="card-user-management" style="display:none;" data-perm="perm_users">
                     <div class="admin-card">
                         <h3><span class="card-icon">👥</span> <span data-i18n="card_users">帳號管理</span></h3>
                         <div class="list-container"><ul id="user-list-ui" class="scroll-list"></ul></div>
@@ -188,7 +188,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" id="card-role-management" style="display:none;" data-perm="roles">
+                <div class="card-wrapper" id="card-role-management" style="display:none;" data-perm="perm_roles">
                     <div class="admin-card">
                         <h3><span class="card-icon">🛡️</span> <span data-i18n="card_roles">權限設定</span></h3>
                         <div id="role-editor-content">Loading...</div>
@@ -196,7 +196,7 @@
                     </div>
                 </div>
                 
-                <div class="card-wrapper" id="card-booking-merged" data-perm="appointment">
+                <div class="card-wrapper" id="card-booking-merged" data-perm="perm_booking">
                     <div class="admin-card">
                         <h3><span class="card-icon">📅</span> <span data-i18n="card_booking">預約管理</span></h3>
                         <p style="color:var(--text-sub); margin-bottom:10px; font-size:0.85rem;">叫號時自動優先處理到期預約</p>
@@ -208,7 +208,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper full-width-card" data-perm="line">
+                <div class="card-wrapper full-width-card" data-perm="perm_line">
                     <div class="admin-card">
                         <h3><span class="card-icon">💬</span> LINE 設定</h3>
                         <div class="control-group" id="unlock-pwd-group" style="display:none;">
