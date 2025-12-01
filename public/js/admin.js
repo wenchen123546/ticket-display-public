@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - Complete View/Edit Separation
+ * 後台邏輯 (admin.js) - View/Edit Separation & Grouped Permissions
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -40,7 +40,7 @@ const updateLangUI = () => {
     $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
     $$('button[data-original-key]').forEach(b => !b.classList.contains('is-confirming') && (b.textContent = T[b.dataset.originalKey]));
     
-    // 根據 View 權限載入資料
+    // View 權限檢查
     if(checkPerm('perm_users_view')) loadUsers();
     if(checkPerm('perm_stats_view') || checkPerm('perm_logs_view')) loadStats();
     if(checkPerm('perm_booking_view')) loadAppointments();
@@ -51,24 +51,22 @@ const updateLangUI = () => {
     if($("section-settings").classList.contains("active") && checkPerm('perm_line_view')) { cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands(); }
     if(username) $("sidebar-user-info").textContent = username;
 
-    // 根據 Edit 權限設定 UI 狀態
+    // Edit 權限檢查 (禁用/隱藏按鈕)
     const canSysEdit = checkPerm('perm_system_edit');
     if($("public-toggle")) $("public-toggle").disabled = !canSysEdit;
     if($("sound-toggle")) $("sound-toggle").disabled = !canSysEdit;
     $$('input[name="systemMode"]').forEach(r => r.disabled = !canSysEdit);
     
-    // 全域重置類按鈕：需要對應的 Edit 權限 (或系統管理權限)
+    // 全域重置按鈕顯示控制
     ["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
-        const el = $(id);
-        if(!el) return;
+        const el = $(id); if(!el) return;
         let visible = isSuperAdmin();
         if(id === 'resetPassed') visible = visible || checkPerm('perm_passed_edit');
         else if(id === 'resetFeaturedContents') visible = visible || checkPerm('perm_links_edit');
         else if(id === 'btn-clear-logs') visible = visible || checkPerm('perm_logs_edit');
         else if(id === 'btn-clear-stats') visible = visible || checkPerm('perm_stats_edit');
         else if(id === 'btn-reset-line-msg') visible = visible || checkPerm('perm_line_edit');
-        else visible = visible || checkPerm('perm_system_edit'); // resetAll, resetNumber, resetIssued
-        
+        else visible = visible || checkPerm('perm_system_edit');
         el.style.display = visible ? "block" : "none";
     });
 };
@@ -81,7 +79,7 @@ const renderList = (ulId, list, fn, emptyMsgKey="empty") => {
 
 const applyTheme = () => { document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light'); ['admin-theme-toggle','admin-theme-toggle-mobile'].forEach(i=>$(i)&&($(i).textContent=isDark?'☀️':'🌙')); };
 
-// 多權限檢查 (OR 邏輯)
+// 多重權限檢查 (OR 邏輯)
 const checkPerm = (p) => {
     if (isSuperAdmin()) return true;
     if (!globalRoleConfig || !globalRoleConfig[userRole]) return false;
@@ -101,11 +99,10 @@ const checkSession = async () => {
         $("login-container").style.display="none"; $("admin-panel").style.display="flex"; $("sidebar-user-info").textContent = username;
         globalRoleConfig = await req("/api/admin/roles/get");
         
-        // 核心邏輯：根據 HTML data-perm 隱藏/顯示卡片與導航
+        // 核心邏輯：根據 HTML data-perm 決定卡片顯示與否
         $$('[data-perm]').forEach(el => {
             const permStr = el.getAttribute('data-perm');
             const hasPerm = checkPerm(permStr);
-            // 如果是卡片或導航按鈕，無權限則隱藏
             if (el.classList.contains('admin-card') || el.classList.contains('nav-btn') || el.classList.contains('card-wrapper')) {
                 el.style.display = hasPerm ? (el.classList.contains('card-wrapper')||el.classList.contains('nav-btn') ? '' : 'flex') : 'none';
             }
@@ -128,7 +125,7 @@ function upgradeSystemModeUI() {
 }
 const updateSegmentedVisuals = (w) => w.querySelectorAll('input[type="radio"]').forEach(r => r.closest('.segmented-option').classList.toggle('active', r.checked));
 
-// 營業時間 UI：根據 Edit 權限啟用/禁用
+// 營業時間 UI
 async function initBusinessHoursUI() {
     if(!checkPerm('perm_system_view') || !$("card-sys") || $("business-hours-group")) return;
     
@@ -169,15 +166,12 @@ async function initBusinessHoursUI() {
 
 async function loadLineMessages() {
     const d = await req("/api/admin/line-messages/get"); if(!d || !$("msg-success")) return;
+    const canEdit = checkPerm('perm_line_edit');
     ["success","approach","arrival","passed","cancel","help","loginPrompt","loginSuccess","noTracking","noPassed","passedPrefix"].forEach(k => { 
         const el = $(`msg-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}`);
-        if(el) {
-            el.value = d[k]||"";
-            el.disabled = !checkPerm('perm_line_edit'); // 禁用輸入框
-        }
+        if(el) { el.value = d[k]||""; el.disabled = !canEdit; }
     });
-    // 儲存按鈕控制
-    if($("btn-save-line-msgs")) $("btn-save-line-msgs").style.display = checkPerm('perm_line_edit') ? "block" : "none";
+    if($("btn-save-line-msgs")) $("btn-save-line-msgs").style.display = canEdit ? "block" : "none";
 }
 
 async function loadLineSystemCommands() {
@@ -201,19 +195,12 @@ async function loadLineAutoReplies() {
     if(!$("line-autoreply-list")) return; 
     const canEdit = checkPerm('perm_line_edit');
     req("/api/admin/line-default-reply/get").then(r => {
-        if($("line-default-msg")) {
-            $("line-default-msg").value = r.reply||"";
-            $("line-default-msg").disabled = !canEdit;
-        }
+        if($("line-default-msg")) { $("line-default-msg").value = r.reply||""; $("line-default-msg").disabled = !canEdit; }
     });
-    // 隱藏預設回覆儲存按鈕
     if($("btn-save-default-reply")) $("btn-save-default-reply").style.display = canEdit ? "block" : "none";
-    
-    // 新增規則區塊
-    const newKwInput = $("new-keyword-in"), newRepInput = $("new-reply-in"), addBtn = $("btn-add-keyword");
-    if(newKwInput) newKwInput.disabled = !canEdit;
-    if(newRepInput) newRepInput.disabled = !canEdit;
-    if(addBtn) addBtn.style.display = canEdit ? "flex" : "none";
+    if($("new-keyword-in")) $("new-keyword-in").disabled = !canEdit;
+    if($("new-reply-in")) $("new-reply-in").disabled = !canEdit;
+    if($("btn-add-keyword")) $("btn-add-keyword").style.display = canEdit ? "flex" : "none";
 
     renderList("line-autoreply-list", Object.entries(await req("/api/admin/line-autoreply/list")||{}), ([key, reply]) => {
         const form = mk("div","edit-form-wrapper",null,{style:"display:none;width:100%;gap:8px;align-items:flex-start;"}, [
@@ -274,7 +261,6 @@ const renderFeaturedItem = (item) => {
 async function loadAppointments() { try{ renderAppointments((await req("/api/appointment/list"))?.appointments); }catch(e){} }
 function renderAppointments(list) { 
     const canEdit = checkPerm('perm_booking_edit');
-    // 如果是預約新增區塊
     if($("appt-number")) $("appt-number").disabled = !canEdit;
     if($("appt-time")) $("appt-time").disabled = !canEdit;
     if($("btn-add-appt")) $("btn-add-appt").style.display = canEdit ? "block" : "none";
@@ -308,35 +294,66 @@ async function loadUsers() {
     }
 }
 
-// 權限設定表：包含所有 View/Edit 細項
+// 權限設定表：分組與折疊優化
 async function loadRoles() {
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"), ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     
-    const perms = [
-        {k:'perm_command', t:'指揮中心 (叫號/重置)'},
-        {k:'perm_issue',   t:'發號管理 (發號/收回)'},
-        {k:'perm_passed_view',  t:'過號名單 (檢視)'},
-        {k:'perm_passed_edit',  t:'過號名單 (操作)'},
-        {k:'perm_booking_view', t:'預約管理 (檢視)'},
-        {k:'perm_booking_edit', t:'預約管理 (操作)'},
-        {k:'perm_stats_view',   t:'流量分析 (檢視)'},
-        {k:'perm_stats_edit',   t:'流量分析 (校正/清空)'},
-        {k:'perm_logs_view',    t:'操作日誌 (檢視)'},
-        {k:'perm_logs_edit',    t:'操作日誌 (清除)'},
-        {k:'perm_system_view',  t:'系統設定 (檢視)'},
-        {k:'perm_system_edit',  t:'系統設定 (修改)'},
-        {k:'perm_links_view',   t:'連結管理 (檢視)'},
-        {k:'perm_links_edit',   t:'連結管理 (修改)'},
-        {k:'perm_line_view',    t:'LINE 設定 (檢視)'},
-        {k:'perm_line_edit',    t:'LINE 設定 (修改)'},
-        {k:'perm_online_view',  t:'在線管理 (查看人員)'},
-        {k:'perm_users_view',   t:'帳號管理 (檢視)'},
-        {k:'perm_users_edit',   t:'帳號管理 (新增/修改)'},
-        {k:'perm_roles',   t:'權限設定 (僅管理員)'}
-    ];
+    // 分組定義
+    const permGroups = {
+        "🎮 現場控台 (Live)": [
+            {k:'perm_command', t:'指揮中心 (叫號/重置)'},
+            {k:'perm_issue',   t:'發號管理 (發號/收回)'},
+            {k:'perm_passed_view',  t:'過號名單 (檢視)'},
+            {k:'perm_passed_edit',  t:'過號名單 (操作)'},
+        ],
+        "📊 數據與日誌 (Data)": [
+            {k:'perm_stats_view',   t:'流量分析 (檢視)'},
+            {k:'perm_stats_edit',   t:'流量分析 (校正/清空)'},
+            {k:'perm_logs_view',    t:'操作日誌 (檢視)'},
+            {k:'perm_logs_edit',    t:'操作日誌 (清除)'},
+        ],
+        "⚙️ 系統與連結 (System)": [
+            {k:'perm_system_view',  t:'系統設定 (檢視)'},
+            {k:'perm_system_edit',  t:'系統設定 (修改)'},
+            {k:'perm_links_view',   t:'連結管理 (檢視)'},
+            {k:'perm_links_edit',   t:'連結管理 (修改)'},
+            {k:'perm_line_view',    t:'LINE 設定 (檢視)'},
+            {k:'perm_line_edit',    t:'LINE 設定 (修改)'},
+        ],
+        "👥 人員與預約 (Users)": [
+            {k:'perm_online_view',  t:'在線管理 (查看人員)'},
+            {k:'perm_users_view',   t:'帳號管理 (檢視)'},
+            {k:'perm_users_edit',   t:'帳號管理 (新增/修改)'},
+            {k:'perm_booking_view', t:'預約管理 (檢視)'},
+            {k:'perm_booking_edit', t:'預約管理 (操作)'},
+            {k:'perm_roles',   t:'權限設定 (僅管理員)'}
+        ]
+    };
 
     const roles = ['OPERATOR','MANAGER','ADMIN'], meta = {'OPERATOR':{icon:'🎮',l:T.role_operator,c:'role-op'},'MANAGER':{icon:'🛡️',l:T.role_manager,c:'role-mgr'},'ADMIN':{icon:'👑',l:T.role_admin,c:'role-mgr'}};
-    ctr.appendChild(mk("div","perm-table-wrapper",null,{},[mk("table","perm-matrix",null,{},[mk("thead",null,null,{},[mk("tr",null,null,{},[mk("th",null,"權限項目 / 角色"), ...roles.map(r=>mk("th",`th-role ${meta[r].c}`,`<div class="th-content"><span class="th-icon">${meta[r].icon}</span><span>${meta[r].l}</span></div>`))])]), mk("tbody",null,null,{}, perms.map(p => mk("tr",null,null,{},[mk("td","td-perm-name",p.t), ...roles.map(r => mk("td","td-check",null,{},[mk("label","custom-check",null,{},[mk("input","role-chk",null,{type:"checkbox",checked:(cfg[r]?.can||[]).includes('*')||(cfg[r]?.can||[]).includes(p.k), "data-role":r, "data-perm":p.k}), mk("span","checkmark")])]))])))])]));
+
+    const thead = mk("thead",null,null,{},[mk("tr",null,null,{},[mk("th",null,"權限分組 / 角色"), ...roles.map(r=>mk("th",`th-role ${meta[r].c}`,`<div class="th-content"><span class="th-icon">${meta[r].icon}</span><span>${meta[r].l}</span></div>`))])]);
+    const tbody = mk("tbody");
+
+    Object.entries(permGroups).forEach(([groupName, items], gIdx) => {
+        // 標題行 (點擊折疊)
+        const headerRow = mk("tr", "group-header", null, {
+            onclick: (e) => {
+                const tr = e.currentTarget; tr.classList.toggle('collapsed');
+                $$(`.group-item-${gIdx}`).forEach(row => row.classList.toggle('hidden'));
+            }
+        });
+        headerRow.appendChild(mk("td", null, null, {colSpan: roles.length + 1}, [mk("span", "group-toggle-icon", "▼"), mk("span", null, groupName)]));
+        tbody.appendChild(headerRow);
+
+        // 權限行
+        items.forEach(p => {
+            const row = mk("tr", `perm-row group-item-${gIdx}`, null, {}, [mk("td","td-perm-name",p.t), ...roles.map(r => mk("td","td-check",null,{},[mk("label","custom-check",null,{},[mk("input","role-chk",null,{type:"checkbox",checked:(cfg[r]?.can||[]).includes('*')||(cfg[r]?.can||[]).includes(p.k), "data-role":r, "data-perm":p.k}), mk("span","checkmark")])]))]);
+            tbody.appendChild(row);
+        });
+    });
+
+    ctr.appendChild(mk("div","perm-table-wrapper",null,{},[mk("table","perm-matrix",null,{},[thead, tbody])]));
 }
 
 async function loadStats() {
