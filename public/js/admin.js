@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - Refactored with Granular View/Edit Permissions
+ * 後台邏輯 (admin.js) - Complete View/Edit Separation
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -40,7 +40,7 @@ const updateLangUI = () => {
     $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
     $$('button[data-original-key]').forEach(b => !b.classList.contains('is-confirming') && (b.textContent = T[b.dataset.originalKey]));
     
-    // Updated permission checks based on VIEW permissions
+    // 根據 View 權限載入資料
     if(checkPerm('perm_users_view')) loadUsers();
     if(checkPerm('perm_stats_view') || checkPerm('perm_logs_view')) loadStats();
     if(checkPerm('perm_booking_view')) loadAppointments();
@@ -51,13 +51,25 @@ const updateLangUI = () => {
     if($("section-settings").classList.contains("active") && checkPerm('perm_line_view')) { cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands(); }
     if(username) $("sidebar-user-info").textContent = username;
 
-    // Global UI State based on EDIT permissions
+    // 根據 Edit 權限設定 UI 狀態
     const canSysEdit = checkPerm('perm_system_edit');
     if($("public-toggle")) $("public-toggle").disabled = !canSysEdit;
     if($("sound-toggle")) $("sound-toggle").disabled = !canSysEdit;
     $$('input[name="systemMode"]').forEach(r => r.disabled = !canSysEdit);
+    
+    // 全域重置類按鈕：需要對應的 Edit 權限 (或系統管理權限)
     ["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
-        if($(id)) $(id).style.display = (isSuperAdmin() || checkPerm('perm_system_edit') || checkPerm('perm_logs_edit') || checkPerm('perm_stats_edit') || checkPerm('perm_links_edit') || checkPerm('perm_line_edit')) ? "block" : "none";
+        const el = $(id);
+        if(!el) return;
+        let visible = isSuperAdmin();
+        if(id === 'resetPassed') visible = visible || checkPerm('perm_passed_edit');
+        else if(id === 'resetFeaturedContents') visible = visible || checkPerm('perm_links_edit');
+        else if(id === 'btn-clear-logs') visible = visible || checkPerm('perm_logs_edit');
+        else if(id === 'btn-clear-stats') visible = visible || checkPerm('perm_stats_edit');
+        else if(id === 'btn-reset-line-msg') visible = visible || checkPerm('perm_line_edit');
+        else visible = visible || checkPerm('perm_system_edit'); // resetAll, resetNumber, resetIssued
+        
+        el.style.display = visible ? "block" : "none";
     });
 };
 
@@ -69,7 +81,7 @@ const renderList = (ulId, list, fn, emptyMsgKey="empty") => {
 
 const applyTheme = () => { document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light'); ['admin-theme-toggle','admin-theme-toggle-mobile'].forEach(i=>$(i)&&($(i).textContent=isDark?'☀️':'🌙')); };
 
-// Updated checkPerm to support multiple permissions (OR logic)
+// 多權限檢查 (OR 邏輯)
 const checkPerm = (p) => {
     if (isSuperAdmin()) return true;
     if (!globalRoleConfig || !globalRoleConfig[userRole]) return false;
@@ -88,8 +100,17 @@ const checkSession = async () => {
     if(uniqueUser) {
         $("login-container").style.display="none"; $("admin-panel").style.display="flex"; $("sidebar-user-info").textContent = username;
         globalRoleConfig = await req("/api/admin/roles/get");
-        // Visibility based on data-perm in HTML
-        $$('[data-perm]').forEach(el => el.style.display = checkPerm(el.getAttribute('data-perm')) ? (el.classList.contains('admin-card')?'flex':'') : 'none');
+        
+        // 核心邏輯：根據 HTML data-perm 隱藏/顯示卡片與導航
+        $$('[data-perm]').forEach(el => {
+            const permStr = el.getAttribute('data-perm');
+            const hasPerm = checkPerm(permStr);
+            // 如果是卡片或導航按鈕，無權限則隱藏
+            if (el.classList.contains('admin-card') || el.classList.contains('nav-btn') || el.classList.contains('card-wrapper')) {
+                el.style.display = hasPerm ? (el.classList.contains('card-wrapper')||el.classList.contains('nav-btn') ? '' : 'flex') : 'none';
+            }
+        });
+
         updateLangUI(); socket.connect(); upgradeSystemModeUI(); initBusinessHoursUI();
         if($("card-role-management")) $("card-role-management").style.display = (isSuperAdmin() || checkPerm('perm_roles')) ? "flex" : "none";
     } else { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); }
@@ -107,7 +128,7 @@ function upgradeSystemModeUI() {
 }
 const updateSegmentedVisuals = (w) => w.querySelectorAll('input[type="radio"]').forEach(r => r.closest('.segmented-option').classList.toggle('active', r.checked));
 
-// --- Updated Business Hours UI with perm_system_edit check ---
+// 營業時間 UI：根據 Edit 權限啟用/禁用
 async function initBusinessHoursUI() {
     if(!checkPerm('perm_system_view') || !$("card-sys") || $("business-hours-group")) return;
     
@@ -148,8 +169,17 @@ async function initBusinessHoursUI() {
 
 async function loadLineMessages() {
     const d = await req("/api/admin/line-messages/get"); if(!d || !$("msg-success")) return;
-    ["success","approach","arrival","passed","cancel","help","loginPrompt","loginSuccess","noTracking","noPassed","passedPrefix"].forEach(k => { if($(`msg-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}`)) $(`msg-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}`).value = d[k]||""; });
+    ["success","approach","arrival","passed","cancel","help","loginPrompt","loginSuccess","noTracking","noPassed","passedPrefix"].forEach(k => { 
+        const el = $(`msg-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}`);
+        if(el) {
+            el.value = d[k]||"";
+            el.disabled = !checkPerm('perm_line_edit'); // 禁用輸入框
+        }
+    });
+    // 儲存按鈕控制
+    if($("btn-save-line-msgs")) $("btn-save-line-msgs").style.display = checkPerm('perm_line_edit') ? "block" : "none";
 }
+
 async function loadLineSystemCommands() {
     const canEdit = checkPerm('perm_line_edit');
     if(!$("line-cmd-section")) {
@@ -166,11 +196,25 @@ async function loadLineSystemCommands() {
     }
     const d = await req("/api/admin/line-system-keywords/get"); if(d) ["login","status","cancel","passed","help"].forEach(k => $(`cmd-${k}`) && ($(`cmd-${k}`).value = d[k]));
 }
+
 async function loadLineAutoReplies() {
     if(!$("line-autoreply-list")) return; 
     const canEdit = checkPerm('perm_line_edit');
-    req("/api/admin/line-default-reply/get").then(r => $("line-default-msg") && ($("line-default-msg").value = r.reply||""));
+    req("/api/admin/line-default-reply/get").then(r => {
+        if($("line-default-msg")) {
+            $("line-default-msg").value = r.reply||"";
+            $("line-default-msg").disabled = !canEdit;
+        }
+    });
+    // 隱藏預設回覆儲存按鈕
+    if($("btn-save-default-reply")) $("btn-save-default-reply").style.display = canEdit ? "block" : "none";
     
+    // 新增規則區塊
+    const newKwInput = $("new-keyword-in"), newRepInput = $("new-reply-in"), addBtn = $("btn-add-keyword");
+    if(newKwInput) newKwInput.disabled = !canEdit;
+    if(newRepInput) newRepInput.disabled = !canEdit;
+    if(addBtn) addBtn.style.display = canEdit ? "flex" : "none";
+
     renderList("line-autoreply-list", Object.entries(await req("/api/admin/line-autoreply/list")||{}), ([key, reply]) => {
         const form = mk("div","edit-form-wrapper",null,{style:"display:none;width:100%;gap:8px;align-items:flex-start;"}, [
             mk("input",null,null,{value:key,placeholder:"Key",style:"flex:1;"}), mk("textarea","multi-line-input",null,{value:reply,placeholder:"Reply",style:"flex:2;min-height:80px;"}),
@@ -230,6 +274,11 @@ const renderFeaturedItem = (item) => {
 async function loadAppointments() { try{ renderAppointments((await req("/api/appointment/list"))?.appointments); }catch(e){} }
 function renderAppointments(list) { 
     const canEdit = checkPerm('perm_booking_edit');
+    // 如果是預約新增區塊
+    if($("appt-number")) $("appt-number").disabled = !canEdit;
+    if($("appt-time")) $("appt-time").disabled = !canEdit;
+    if($("btn-add-appt")) $("btn-add-appt").style.display = canEdit ? "block" : "none";
+
     renderList("appointment-list-ui", list, a => {
         const acts = mk("div","list-actions",null,{},[]);
         if(canEdit) acts.appendChild((b=>{confirmBtn(b,T.del,async()=>await req("/api/appointment/remove",{id:a.id})); return b;})(mk("button","btn-secondary",T.del)));
@@ -252,7 +301,6 @@ async function loadUsers() {
         return mk("li","user-card-item",null,{},[mk("div","user-card-header",null,{},[mk("div","user-avatar-fancy",(u.nickname||u.username).charAt(0).toUpperCase(),{style:`background:linear-gradient(135deg, hsl(${u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360},75%,60%), hsl(${(u.username.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360},75%,50%))`}), mk("div","user-info-fancy",null,{},[mk("div","user-nick-fancy",u.nickname||u.username),mk("div","user-id-fancy",`@${u.username}`),mk("div",`role-badge-fancy ${rC}`,u.role==='OPERATOR'?'Op (操作員)':(u.role==='MANAGER'?'Mgr (經理)':'Adm (管理員)'))])]), acts, editForm]);
     }, "loading");
 
-    // Hide/Show Add User form based on permissions
     const ctr=$("card-user-management")?.querySelector('.admin-card'); $("add-user-container-fixed")?.remove();
     if(ctr && canEdit) {
         const uIn=mk("input",null,null,{id:"new-user-username",placeholder:T.ph_account}), pIn=mk("input",null,null,{id:"new-user-password",type:"password",placeholder:"Pwd"}), nIn=mk("input",null,null,{id:"new-user-nickname",placeholder:T.ph_nick}), rIn=mk("select",null,null,{id:"new-user-role"},["Operator","Manager","Admin"].map(x=>new Option(x,x.toUpperCase())));
@@ -260,11 +308,10 @@ async function loadUsers() {
     }
 }
 
-// Updated loadRoles to display granular View/Edit permissions
+// 權限設定表：包含所有 View/Edit 細項
 async function loadRoles() {
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"), ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     
-    // Define granular permissions mapping (Matched with Backend index.js)
     const perms = [
         {k:'perm_command', t:'指揮中心 (叫號/重置)'},
         {k:'perm_issue',   t:'發號管理 (發號/收回)'},
@@ -313,7 +360,12 @@ function renderLineSettings() {
         if(canEdit) row.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}}));
         return mk("li", "list-item", null, {}, [row, edit]);
     }, "empty");
-    req("/api/admin/line-settings/get-unlock-pass").then(r=>{ if($("line-unlock-pwd") && r) $("line-unlock-pwd").value=r.password||""; });
+    const pwdInput = $("line-unlock-pwd"), savePwdBtn = $("btn-save-unlock-pwd");
+    if(pwdInput) {
+        req("/api/admin/line-settings/get-unlock-pass").then(r=>{ if(r) pwdInput.value=r.password||""; });
+        pwdInput.disabled = !canEdit;
+    }
+    if(savePwdBtn) savePwdBtn.style.display = canEdit ? "block" : "none";
 }
 function renderLogs(logs, init) { const ul=$("admin-log-ui"); if(!ul) return; if(init) ul.innerHTML=""; if(!logs?.length&&init) return ul.innerHTML=`<li class='list-item' style='color:var(--text-sub);'>${T.no_logs}</li>`; const frag=document.createDocumentFragment(); logs.forEach(m=>frag.appendChild(mk("li","list-item",m,{style:"font-family:monospace;font-size:0.8rem;"}))); init?ul.appendChild(frag):ul.insertBefore(frag.firstChild, ul.firstChild); while(ul.children.length>50) ul.removeChild(ul.lastChild); }
 
@@ -330,7 +382,7 @@ bind("btn-broadcast",async()=>{const m=$("broadcast-msg").value; if(m && await r
 bind("btn-add-appt",async()=>{const n=$("appt-number").value,t=$("appt-time").value; if(n&&t && await req("/api/appointment/add",{number:parseInt(n),timeStr:t})){toast(T.saved,"success");$("appt-number").value="";$("appt-time")._flatpickr?.clear();}});
 bind("btn-save-roles",async()=>{
     const c={OPERATOR:{level:1,can:[]},MANAGER:{level:2,can:[]},ADMIN:{level:9,can:['*']}}; $$(".role-chk:checked").forEach(k=>{ if(!c[k.dataset.role].can.includes(k.dataset.perm)) c[k.dataset.role].can.push(k.dataset.perm); });
-    if(await req("/api/admin/roles/update",{rolesConfig:c})){toast(T.saved,"success"); globalRoleConfig=c; applyTheme(); $$('[data-perm]').forEach(el => el.style.display = checkPerm(el.getAttribute('data-perm')) ? (el.classList.contains('admin-card')?'flex':'') : 'none');}
+    if(await req("/api/admin/roles/update",{rolesConfig:c})){toast(T.saved,"success"); globalRoleConfig=c; applyTheme(); $$('[data-perm]').forEach(el => el.style.display = checkPerm(el.getAttribute('data-perm')) ? (el.classList.contains('admin-card')||el.classList.contains('nav-btn')||el.classList.contains('card-wrapper')? (el.classList.contains('nav-btn')||el.classList.contains('card-wrapper')?'':'flex') : 'none') : 'none');}
 });
 bind("btn-save-unlock-pwd",async()=>{if(await req("/api/admin/line-settings/save-pass",{password:$("line-unlock-pwd").value}))toast(T.saved,"success");});
 bind("btn-export-csv",async()=>{const d=await req("/api/admin/export-csv",{date:new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"})}); if(d?.csvData){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'}));a.download=d.fileName;a.click();}});
