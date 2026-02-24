@@ -55,6 +55,7 @@ const updateLangUI = () => {
     const canSysEdit = checkPerm('perm_system_edit');
     if($("public-toggle")) $("public-toggle").disabled = !canSysEdit;
     if($("sound-toggle")) $("sound-toggle").disabled = !canSysEdit;
+    if($("ticketing-toggle")) $("ticketing-toggle").disabled = !canSysEdit;
     $$('input[name="systemMode"]').forEach(r => r.disabled = !canSysEdit);
     
     // 全域重置按鈕顯示控制
@@ -226,6 +227,7 @@ socket.on("newAdminLog", l => checkPerm('perm_logs_view') && renderLogs([l], fal
 socket.on("updatePublicStatus", b => $("public-toggle") && ($("public-toggle").checked = b));
 socket.on("updateSoundSetting", b => $("sound-toggle") && ($("sound-toggle").checked = b));
 socket.on("updateSystemMode", m => { $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m)); const w = document.querySelector('.segmented-control'); if(w) updateSegmentedVisuals(w); });
+socket.on("updateTicketingEnabled", b => $("ticketing-toggle") && ($("ticketing-toggle").checked = b));
 socket.on("updateAppointments", l => checkPerm('perm_booking_view') && renderAppointments(l));
 socket.on("updatePassed", l => renderList("passed-list-ui", l, n => {
     const canEdit = checkPerm('perm_passed_edit');
@@ -427,6 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $$('.nav-btn').forEach(b => b.onclick = () => { $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $$('.section-group').forEach(s=>s.classList.remove('active')); const t=$(b.dataset.target); if(t){ t.classList.add('active'); if(b.dataset.target==='section-stats') loadStats(); if(b.dataset.target==='section-settings'){ loadAppointments(); loadUsers(); if(checkPerm('perm_line_view')){cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands();} } } });
     $("sound-toggle")?.addEventListener("change",e=>req("/set-sound-enabled",{enabled:e.target.checked}));
     $("public-toggle")?.addEventListener("change",e=>req("/set-public-status",{isPublic:e.target.checked}));
+    $("ticketing-toggle")?.addEventListener("change", e => req("/set-ticketing-enabled", {enabled: e.target.checked}));
     $$('input[name="systemMode"]').forEach(r=>r.onchange=()=>confirm(T.confirm+" Switch Mode?")?req("/set-system-mode",{mode:r.value}):(r.checked=!r.checked));
     document.addEventListener("keydown", e => { if(["INPUT","TEXTAREA"].includes(document.activeElement.tagName)){ if(e.key==="Enter"&&!e.shiftKey) {const m={"username-input":"login-button","manualNumber":"setNumber","manualIssuedNumber":"setIssuedNumber","new-passed-number":"add-passed-btn"}; if(m[document.activeElement.id]) $(m[document.activeElement.id])?.click();} return;} if(e.key==="ArrowRight") $("btn-call-next")?.click(); if(e.key==="ArrowLeft") $("btn-call-prev")?.click(); if(e.key.toLowerCase()==="p") $("btn-mark-passed")?.click(); });
 });
