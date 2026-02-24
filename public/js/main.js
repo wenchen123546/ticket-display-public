@@ -1,11 +1,12 @@
 /* ==========================================
- * 前台邏輯 (main.js) - Refactored & Fixed (HH:MM Support)
+ * 前台邏輯 (main.js) - Refactored, Fixed HH:MM & Decoupled MAX
  * ========================================== */
 const d = document, ls = localStorage, $ = i => d.getElementById(i), $$ = s => d.querySelectorAll(s);
 const on = (e, ev, fn) => e?.addEventListener(ev, fn), show = (e, v) => e && (e.style.display = v ? 'block' : 'none');
 const i18n={"zh-TW":{cur:"目前叫號",iss:"已發至",online:"線上取號",help:"免排隊，手機領號",man_t:"號碼提醒",man_p:"輸入您的號碼開啟到號提醒",take:"立即取號",track:"追蹤",my:"我的號碼",ahead:"前方",wait:"⏳ 剩 %s 組",arr:"🎉 輪到您了！",pass:"⚠️ 已過號",p_list:"過號",none:"無",links:"精選連結",copy:"複製",sound:"音效",s_on:"開啟",s_off:"靜音",scan:"掃描追蹤",off:"連線中斷",ok:"取號成功",fail:"失敗",no_in:"請輸入號碼",cancel:"取消追蹤？",copied:"已複製",notice:"📢 ",q_left:"還剩 %s 組！",est:"約 %s 分",est_less:"< 1 分",just:"剛剛",ago:"%s 分前",conn:"已連線",retry:"連線中 (%s)...",wait_count:"等待中",sys_close:"⛔ 系統已暫停服務",sys_close_desc:"請稍候，我們將很快回來"},"en":{cur:"Now Serving",iss:"Issued",online:"Get Ticket",help:"Digital ticket & notify",man_t:"Number Alert",man_p:"Enter number to get alerted",take:"Get Ticket",track:"Track",my:"Your #",ahead:"Ahead",wait:"⏳ %s groups",arr:"🎉 Your Turn!",pass:"⚠️ Passed",p_list:"Passed",none:"None",links:"Links",copy:"Copy",sound:"Sound",s_on:"On",s_off:"Mute",scan:"Scan",off:"Offline",ok:"Success",fail:"Failed",no_in:"Enter #",cancel:"Stop tracking?",copied:"Copied",notice:"📢 ",q_left:"%s groups left!",est:"~%s min",est_less:"< 1 min",just:"Now",ago:"%s m ago",conn:"Online",retry:"Retry (%s)...",wait_count:"Waiting",sys_close:"⛔ System Paused",sys_close_desc:"Please wait, we will be back soon"}};
 
-let lang = ls.getItem('callsys_lang')||'zh-TW', T = i18n[lang], myTicket = ls.getItem('callsys_ticket'), sysMode = 'ticketing', allowTicketing = true;
+// 引入 currentMax 以記錄系統真實進度
+let lang = ls.getItem('callsys_lang')||'zh-TW', T = i18n[lang], myTicket = ls.getItem('callsys_ticket'), sysMode = 'ticketing', allowTicketing = true, currentMax = 0;
 let sndEnabled = true, localMute = false, avgTime = 0, lastUpd, audioCtx, wakeLock, connTimer, cachedMode, cachedPublic;
 let isDarkMode = ls.getItem('callsys_theme') === 'dark', isKioskMode = () => new URLSearchParams(window.location.search).get('mode')==='kiosk';
 
@@ -52,6 +53,7 @@ const applyText = () => {
     $$("#hero-waiting-count, #ticket-waiting-count").forEach(e => e.previousElementSibling && (e.previousElementSibling.textContent = e.id.includes('hero') ? T.wait_count : T.ahead));
     if($("overlay-title")) $("overlay-title").textContent=T.sys_close; if($("overlay-desc")) $("overlay-desc").textContent=T.sys_close_desc;
 };
+
 const renderMode = () => {
     const isT = sysMode==='ticketing', hasT = !!myTicket;
     show($("ticketing-mode-container"), isT && !hasT && allowTicketing);
@@ -70,18 +72,28 @@ const renderMode = () => {
 
     if(hasT) { $("my-ticket-num").textContent=myTicket; updateTicket(parseInt($("number").textContent)||0); toggleWakeLock(true); } else if(!isKioskMode()) toggleWakeLock(false);
 };
+
+// 導入 MAX 進度機制，避免過號重呼時等待人數錯亂
 const updateTicket = (curr) => {
     if (!myTicket) return;
-    const diff = myTicket - curr, wEl = $("ticket-wait-time");
+    const wEl = $("ticket-wait-time");
+    let diff;
+    if (myTicket === curr) diff = 0; // 剛好叫到我 (包含正常叫號與重呼)
+    else if (myTicket <= currentMax) diff = -1; // 我的號碼比系統最大進度小，且現在不是叫我 -> 已過號
+    else diff = myTicket - currentMax; // 還沒輪到我，前方等待人數以「最大進度」為基準
+
     $("ticket-waiting-count").textContent = diff > 0 ? diff : (diff===0?"0":"-");
     $("ticket-status-text").textContent = diff > 0 ? T.wait.replace("%s",diff) : (diff===0?T.arr:T.pass);
+    
     if(diff > 0 && avgTime >= 0) {
         const min = Math.ceil(diff * avgTime), tStr = new Date(Date.now()+min*60000).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});
         wEl.innerHTML = `${(min<=1)?T.est_less:T.est.replace("%s",min)}<br><small style="opacity:0.8;font-size:0.8em">預計 ${tStr} 到號</small>`; show(wEl, true);
     } else show(wEl, false);
+    
     if(diff===0) { window.confetti?.({particleCount:100, spread:70, origin:{y:0.6}}); navigator.vibrate?.([200,100,200]); }
     if(diff<=3 && diff>0 && d.hidden && Notification.permission==="granted") new Notification("Queue", {body:T.q_left.replace("%s",diff)});
 };
+
 const updateMuteUI = (mute, force) => {
     localMute = mute; const b = $("sound-prompt"); if(!b) return;
     b.children[0].textContent=(force||mute)?'🔇':'🔊'; b.children[1].textContent=(force||mute)?T.s_off:T.s_on; b.classList.toggle("is-active", !force && !mute);
@@ -93,8 +105,10 @@ socket.on("connect", () => { socket.emit('joinRoom', 'public'); clearTimeout(con
     .on("disconnect", () => connTimer=setTimeout(()=>{$("status-bar").textContent=T.off; $("status-bar").classList.add("visible");}, 1000))
     .on("reconnect_attempt", a => $("status-bar").textContent = T.retry.replace("%s",a))
     .on("updateQueue", d => {
+        currentMax = d.max || d.current; // 同步後端傳來的 MAX 進度
         if($("issued-number-main")) $("issued-number-main").textContent = d.issued;
-        if($("hero-waiting-count")) $("hero-waiting-count").textContent = Math.max(0, d.issued - d.current);
+        if($("hero-waiting-count")) $("hero-waiting-count").textContent = Math.max(0, d.issued - currentMax);
+        
         if(myTicket && ((d.issued===0 && myTicket>5) || (myTicket < d.current-20))) { ls.removeItem('callsys_ticket'); myTicket=null; renderMode(); if($("btn-take-ticket")) { $("btn-take-ticket").disabled=false; $("btn-take-ticket").textContent=T.take; } toast("票號已過期或系統重置", "info"); }
         const el = $("number");
         if(el.textContent !== String(d.current)) {
@@ -126,7 +140,6 @@ socket.on("connect", () => { socket.emit('joinRoom', 'public'); clearTimeout(con
     .on("updateBusinessHours", h => {
         const el = $("business-hours-badge");
         if(el) {
-            // Simplified display logic: show raw string from backend (e.g. "08:30 - 22:00")
             if (h && h.enabled) {
                 el.style.display = "inline-flex";
                 el.innerHTML = `<span>🕒</span> ${h.start} - ${h.end}`;
