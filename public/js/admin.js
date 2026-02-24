@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - View/Edit Separation & Grouped Permissions
+ * 後台邏輯 (admin.js) - View/Edit Separation, Grouped Permissions & MAX Update
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -80,7 +80,6 @@ const renderList = (ulId, list, fn, emptyMsgKey="empty") => {
 
 const applyTheme = () => { document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light'); ['admin-theme-toggle','admin-theme-toggle-mobile'].forEach(i=>$(i)&&($(i).textContent=isDark?'☀️':'🌙')); };
 
-// 多重權限檢查 (OR 邏輯)
 const checkPerm = (p) => {
     if (isSuperAdmin()) return true;
     if (!globalRoleConfig || !globalRoleConfig[userRole]) return false;
@@ -100,7 +99,6 @@ const checkSession = async () => {
         $("login-container").style.display="none"; $("admin-panel").style.display="flex"; $("sidebar-user-info").textContent = username;
         globalRoleConfig = await req("/api/admin/roles/get");
         
-        // 核心邏輯：根據 HTML data-perm 決定卡片顯示與否
         $$('[data-perm]').forEach(el => {
             const permStr = el.getAttribute('data-perm');
             const hasPerm = checkPerm(permStr);
@@ -126,7 +124,6 @@ function upgradeSystemModeUI() {
 }
 const updateSegmentedVisuals = (w) => w.querySelectorAll('input[type="radio"]').forEach(r => r.closest('.segmented-option').classList.toggle('active', r.checked));
 
-// 營業時間 UI
 async function initBusinessHoursUI() {
     if(!checkPerm('perm_system_view') || !$("card-sys") || $("business-hours-group")) return;
     
@@ -220,7 +217,15 @@ async function loadLineAutoReplies() {
 
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => $("status-bar").classList.add("visible"));
-socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); if(checkPerm('perm_stats_view')) loadStats(); });
+
+// 廣播接收：計算等待組數時使用 MAX 進度以避免重呼產生負數/錯亂
+socket.on("updateQueue", d => { 
+    $("number").textContent = d.current; 
+    $("issued-number").textContent = d.issued; 
+    $("waiting-count").textContent = Math.max(0, d.issued - (d.max || d.current)); 
+    if(checkPerm('perm_stats_view')) loadStats(); 
+});
+
 socket.on("update", n => { $("number").textContent=n; if(checkPerm('perm_stats_view')) loadStats(); });
 socket.on("initAdminLogs", l => checkPerm('perm_logs_view') && renderLogs(l, true));
 socket.on("newAdminLog", l => checkPerm('perm_logs_view') && renderLogs([l], false));
@@ -296,11 +301,9 @@ async function loadUsers() {
     }
 }
 
-// 權限設定表：分組與折疊優化
 async function loadRoles() {
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"), ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     
-    // 分組定義
     const permGroups = {
         "🎮 現場控台 (Live)": [
             {k:'perm_command', t:'指揮中心 (叫號/重置)'},
@@ -338,7 +341,6 @@ async function loadRoles() {
     const tbody = mk("tbody");
 
     Object.entries(permGroups).forEach(([groupName, items], gIdx) => {
-        // 標題行 (點擊折疊)
         const headerRow = mk("tr", "group-header", null, {
             onclick: (e) => {
                 const tr = e.currentTarget; tr.classList.toggle('collapsed');
@@ -348,7 +350,6 @@ async function loadRoles() {
         headerRow.appendChild(mk("td", null, null, {colSpan: roles.length + 1}, [mk("span", "group-toggle-icon", "▼"), mk("span", null, groupName)]));
         tbody.appendChild(headerRow);
 
-        // 權限行
         items.forEach(p => {
             const row = mk("tr", `perm-row group-item-${gIdx}`, null, {}, [mk("td","td-perm-name",p.t), ...roles.map(r => mk("td","td-check",null,{},[mk("label","custom-check",null,{},[mk("input","role-chk",null,{type:"checkbox",checked:(cfg[r]?.can||[]).includes('*')||(cfg[r]?.can||[]).includes(p.k), "data-role":r, "data-perm":p.k}), mk("span","checkmark")])]))]);
             tbody.appendChild(row);
@@ -370,6 +371,7 @@ async function loadStats() {
         }
     } catch (e) { console.error(e); }
 }
+
 async function loadLineSettings() { cachedLine = await req("/api/admin/line-settings/get"); renderLineSettings(); }
 function renderLineSettings() {
     const canEdit = checkPerm('perm_line_edit');
@@ -386,6 +388,7 @@ function renderLineSettings() {
     }
     if(savePwdBtn) savePwdBtn.style.display = canEdit ? "block" : "none";
 }
+
 function renderLogs(logs, init) { const ul=$("admin-log-ui"); if(!ul) return; if(init) ul.innerHTML=""; if(!logs?.length&&init) return ul.innerHTML=`<li class='list-item' style='color:var(--text-sub);'>${T.no_logs}</li>`; const frag=document.createDocumentFragment(); logs.forEach(m=>frag.appendChild(mk("li","list-item",m,{style:"font-family:monospace;font-size:0.8rem;"}))); init?ul.appendChild(frag):ul.insertBefore(frag.firstChild, ul.firstChild); while(ul.children.length>50) ul.removeChild(ul.lastChild); }
 
 const act=(id,api,data={})=>$(id)?.addEventListener("click",async()=>{const n=$("number"),ov=n?parseInt(n.textContent||0):0; if(api.includes('call')&&n&&data.direction){n.textContent=ov+(data.direction==='next'?1:-1);n.style.opacity="0.6";} try{await req(api,data,$(id));}catch(e){if(n)n.textContent=ov;}finally{if(n)n.style.opacity="1";}}), bind=(id,fn)=>$(id)?.addEventListener("click",fn), adjCur=async d=>{const n=$("number"),c=parseInt(n.textContent||0,t=c+d);if(t>0){n.textContent=t;n.style.opacity="0.6";try{if(await req("/api/control/set-call",{number:t}))toast(`${T.saved}: ${t}`,"success");}catch(e){n.textContent=c;}finally{n.style.opacity="1";}}};
