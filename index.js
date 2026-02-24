@@ -161,7 +161,9 @@ app.post("/login", rateLimit({windowMs:9e5,max:100}), H(async (req, res) => {
     return { success: true, role: u==='superadmin'?'super':'normal', userRole, username: u, nickname: nick };
 }));
 app.post("/api/ticket/take", rateLimit({windowMs:36e5,max:20}), H(async req => {
-    if(await redis.get(KEYS.MODE)==='input') throw new Error("手動模式"); if(!(await isBusinessOpen())) throw new Error("非營業時間");
+    if(await redis.get(KEYS.MODE)==='input') throw new Error("手動模式"); 
+    if(!(await isBusinessOpen())) throw new Error("非營業時間");
+    if(await redis.get("callsys:allowTicketing") === "0") throw new Error("目前暫停取號");
     const { dateStr, hour } = getTWTime(), t = await redis.incr(KEYS.ISSUED); await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, 1); await redis.expire(`${KEYS.HOURLY}${dateStr}`, 172800);
     dbQueue.push({dateStr, timestamp: Date.now(), number: t, action: 'online_take', operator: 'User', wait_time_min: await calcWaitTime()}); await broadcastQueue(); return { ticket: t };
 }));
@@ -210,6 +212,7 @@ app.post("/api/appointment/remove", auth, perm('perm_booking_edit'), H(async r =
 app.post("/set-sound-enabled", auth, perm('perm_system_edit'), H(async r=>{ await redis.set("callsys:soundEnabled", r.body.enabled?"1":"0"); io.emit("updateSoundSetting", r.body.enabled); }));
 app.post("/set-public-status", auth, perm('perm_system_edit'), H(async r=>{ await redis.set("callsys:isPublic", r.body.isPublic?"1":"0"); io.emit("updatePublicStatus", r.body.isPublic); }));
 app.post("/set-system-mode", auth, perm('perm_system_edit'), H(async r=>{ await redis.set(KEYS.MODE, r.body.mode); io.emit("updateSystemMode", r.body.mode); }));
+app.post("/set-ticketing-enabled", auth, perm('perm_system_edit'), H(async r=>{ await redis.set("callsys:allowTicketing", r.body.enabled?"1":"0"); io.emit("updateTicketingEnabled", r.body.enabled); }));
 app.post("/reset", auth, perm('perm_system_edit'), H(async r => resetSys(r.user.nickname)));
 app.post("/api/admin/broadcast", auth, perm('perm_system_edit'), H(async r => { io.emit("adminBroadcast", r.body.message); addLog(r.user.nickname, `📢 廣播: ${r.body.message}`); }));
 
@@ -245,8 +248,8 @@ cron.schedule('0 4 * * *', () => { resetSys('系統自動'); run("DELETE FROM hi
 io.use(async (s, next) => { try { const t = s.handshake.auth.token || parseCookie(s.request.headers.cookie||'')['token']; if(t) { const u = JSON.parse(await redis.get(`${KEYS.SESSION}${t}`)); if(u) s.user = u; } next(); } catch(e) { next(); } });
 io.on("connection", async s => {
     if(s.user) { s.join("admin"); const socks = await io.in("admin").fetchSockets(); io.to("admin").emit("updateOnlineAdmins", [...new Map(socks.map(x=>x.user&&[x.user.username, x.user]).filter(Boolean)).values()]); s.emit("initAdminLogs", await redis.lrange(KEYS.LOGS,0,99)); broadcastAppts(); }
-    s.join('public'); const [c,i,p,f,snd,pub,m,h] = await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.zrange(KEYS.PASSED,0,-1),redis.lrange(KEYS.FEATURED,0,-1),redis.get("callsys:soundEnabled"),redis.get("callsys:isPublic"),redis.get(KEYS.MODE), redis.get(KEYS.HOURS)]);
-    s.emit("update",Number(c)); s.emit("updateQueue",{current:Number(c),issued:Number(i)}); s.emit("updatePassed",p.map(Number)); s.emit("updateFeaturedContents",f.map(JSON.parse)); s.emit("updateSoundSetting",snd==="1"); s.emit("updatePublicStatus",pub!=="0"); s.emit("updateSystemMode",m||'ticketing'); s.emit("updateWaitTime",await calcWaitTime());
+    s.join('public'); const [c,i,p,f,snd,pub,m,h,allowT] = await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.zrange(KEYS.PASSED,0,-1),redis.lrange(KEYS.FEATURED,0,-1),redis.get("callsys:soundEnabled"),redis.get("callsys:isPublic"),redis.get(KEYS.MODE), redis.get(KEYS.HOURS), redis.get("callsys:allowTicketing")]);
+    s.emit("update",Number(c)); s.emit("updateQueue",{current:Number(c),issued:Number(i)}); s.emit("updatePassed",p.map(Number)); s.emit("updateFeaturedContents",f.map(JSON.parse)); s.emit("updateSoundSetting",snd==="1"); s.emit("updatePublicStatus",pub!=="0"); s.emit("updateSystemMode",m||'ticketing'); s.emit("updateWaitTime",await calcWaitTime()); s.emit("updateTicketingEnabled", allowT!=="0");
     s.emit("updateBusinessHours", h ? JSON.parse(h) : {enabled:false});
 });
 initDB().then(() => server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.12 running on ${PORT}`))).catch(e => { console.error(e); process.exit(1); });
