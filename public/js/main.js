@@ -5,7 +5,7 @@ const d = document, ls = localStorage, $ = i => d.getElementById(i), $$ = s => d
 const on = (e, ev, fn) => e?.addEventListener(ev, fn), show = (e, v) => e && (e.style.display = v ? 'block' : 'none');
 const i18n={"zh-TW":{cur:"目前叫號",iss:"已發至",online:"線上取號",help:"免排隊，手機領號",man_t:"號碼提醒",man_p:"輸入您的號碼開啟到號提醒",take:"立即取號",track:"追蹤",my:"我的號碼",ahead:"前方",wait:"⏳ 剩 %s 組",arr:"🎉 輪到您了！",pass:"⚠️ 已過號",p_list:"過號",none:"無",links:"精選連結",copy:"複製",sound:"音效",s_on:"開啟",s_off:"靜音",scan:"掃描追蹤",off:"連線中斷",ok:"取號成功",fail:"失敗",no_in:"請輸入號碼",cancel:"取消追蹤？",copied:"已複製",notice:"📢 ",q_left:"還剩 %s 組！",est:"約 %s 分",est_less:"< 1 分",just:"剛剛",ago:"%s 分前",conn:"已連線",retry:"連線中 (%s)...",wait_count:"等待中",sys_close:"⛔ 系統已暫停服務",sys_close_desc:"請稍候，我們將很快回來"},"en":{cur:"Now Serving",iss:"Issued",online:"Get Ticket",help:"Digital ticket & notify",man_t:"Number Alert",man_p:"Enter number to get alerted",take:"Get Ticket",track:"Track",my:"Your #",ahead:"Ahead",wait:"⏳ %s groups",arr:"🎉 Your Turn!",pass:"⚠️ Passed",p_list:"Passed",none:"None",links:"Links",copy:"Copy",sound:"Sound",s_on:"On",s_off:"Mute",scan:"Scan",off:"Offline",ok:"Success",fail:"Failed",no_in:"Enter #",cancel:"Stop tracking?",copied:"Copied",notice:"📢 ",q_left:"%s groups left!",est:"~%s min",est_less:"< 1 min",just:"Now",ago:"%s m ago",conn:"Online",retry:"Retry (%s)...",wait_count:"Waiting",sys_close:"⛔ System Paused",sys_close_desc:"Please wait, we will be back soon"}};
 
-let lang = ls.getItem('callsys_lang')||'zh-TW', T = i18n[lang], myTicket = ls.getItem('callsys_ticket'), sysMode = 'ticketing';
+let lang = ls.getItem('callsys_lang')||'zh-TW', T = i18n[lang], myTicket = ls.getItem('callsys_ticket'), sysMode = 'ticketing', allowTicketing = true;
 let sndEnabled = true, localMute = false, avgTime = 0, lastUpd, audioCtx, wakeLock, connTimer, cachedMode, cachedPublic;
 let isDarkMode = ls.getItem('callsys_theme') === 'dark', isKioskMode = () => new URLSearchParams(window.location.search).get('mode')==='kiosk';
 
@@ -54,7 +54,20 @@ const applyText = () => {
 };
 const renderMode = () => {
     const isT = sysMode==='ticketing', hasT = !!myTicket;
-    show($("ticketing-mode-container"), isT && !hasT); show($("input-mode-container"), !isT && !hasT); show($("my-ticket-view"), hasT);
+    show($("ticketing-mode-container"), isT && !hasT && allowTicketing);
+    show($("input-mode-container"), !isT && !hasT && allowTicketing);
+    show($("my-ticket-view"), hasT);
+    
+    let msgEl = $("ticketing-closed-msg");
+    if (!msgEl) {
+        msgEl = d.createElement('div');
+        msgEl.id = "ticketing-closed-msg";
+        msgEl.className = "action-header";
+        msgEl.innerHTML = `<h3 style="text-align:center; color: var(--warning); margin-bottom: 15px;">暫停取號</h3><p class="func-desc" style="text-align:center;">目前暫不開放線上取號與追蹤</p>`;
+        $("ticketing-mode-container").parentNode.insertBefore(msgEl, $("my-ticket-view"));
+    }
+    show(msgEl, !hasT && !allowTicketing);
+
     if(hasT) { $("my-ticket-num").textContent=myTicket; updateTicket(parseInt($("number").textContent)||0); toggleWakeLock(true); } else if(!isKioskMode()) toggleWakeLock(false);
 };
 const updateTicket = (curr) => {
@@ -100,6 +113,7 @@ socket.on("connect", () => { socket.emit('joinRoom', 'public'); clearTimeout(con
         if(!ov) { ov=d.body.appendChild(Object.assign(d.createElement('div'),{id:"closed-overlay",innerHTML:`<div style="text-align:center;"><div style="font-size:4rem;">⛔</div><h2 id="overlay-title" style="margin:20px 0 10px;font-weight:900;">${T.sys_close}</h2><p id="overlay-desc" style="opacity:0.8;">${T.sys_close_desc}</p></div>`})); Object.assign(ov.style,{position:'fixed',inset:0,background:'var(--bg-body)',zIndex:9998,display:'none',justifyContent:'center',alignItems:'center',flexDirection:'column'}); }
         ov.style.display = !b ? 'flex' : 'none';
     })
+    .on("updateTicketingEnabled", b => { allowTicketing = b; renderMode(); })
     .on("updateSystemMode", m => { if(cachedMode!==m) ls.setItem('callsys_mode_cache', cachedMode=sysMode=m); renderMode(); })
     .on("updatePassed", l => { 
         const ul=$("passedList"), mt=$("passed-empty-msg"), len = l?.length||0; 
