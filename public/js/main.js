@@ -60,15 +60,9 @@ const renderMode = () => {
     show($("input-mode-container"), !isT && !hasT && allowTicketing);
     show($("my-ticket-view"), hasT);
     
-    let msgEl = $("ticketing-closed-msg");
-    if (!msgEl) {
-        msgEl = d.createElement('div');
-        msgEl.id = "ticketing-closed-msg";
-        msgEl.className = "action-header";
-        msgEl.innerHTML = `<h3 style="text-align:center; color: var(--warning); margin-bottom: 15px;">暫停取號</h3><p class="func-desc" style="text-align:center;">目前暫不開放線上取號與追蹤</p>`;
-        $("ticketing-mode-container").parentNode.insertBefore(msgEl, $("my-ticket-view"));
-    }
-    show(msgEl, !hasT && !allowTicketing);
+    // 如果沒有票且不允許取號，直接隱藏整個取號控制區塊 (保留下方的連結與工具列)
+    const controlBody = d.querySelector('.control-body');
+    if (controlBody) show(controlBody, hasT || allowTicketing);
 
     if(hasT) { $("my-ticket-num").textContent=myTicket; updateTicket(parseInt($("number").textContent)||0); toggleWakeLock(true); } else if(!isKioskMode()) toggleWakeLock(false);
 };
