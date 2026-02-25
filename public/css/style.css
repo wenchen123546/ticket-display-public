@@ -71,7 +71,11 @@ body.dark-mode .my-ticket-card { background:linear-gradient(145deg,#312e81 0%,#1
 .tag-list li { font-size:.9rem; font-weight:700; color:var(--accent-red); background:var(--accent-bg-red); padding:8px 4px; border-radius:14px; border:1px solid rgba(225,29,72,.1); width:100%!important; display:flex; justify-content:center; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:.2s; }
 .tag-list li:hover { transform:translateY(-2px); }
 .empty-state { color:var(--text-light); font-size:.9rem; text-align:center; padding:10px; font-style:italic; opacity:.7; }
-.footer-tools { margin-top:20px; padding-top:20px; border-top:1px dashed var(--border); }
+
+/* -- 處理精選連結與上方間距連動區 -- */
+.footer-tools { margin-top:16px; padding-top:16px; border-top:1px dashed var(--border); transition: margin 0.3s, padding 0.3s; }
+.control-body[style*="display: none"] + .footer-tools { margin-top:0; padding-top:0; border-top:none; }
+
 .links-label { font-size:.75rem; color:var(--text-sub); font-weight:800; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px; }
 #featured-container { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
 .link-chip { display:inline-block; font-size:.85rem; padding:8px 16px; background:var(--bg-body); border:1px solid var(--border); border-radius:12px; text-decoration:none; color:var(--primary); font-weight:700; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; box-shadow:0 2px 4px rgba(0,0,0,.02); transition:.2s; }
@@ -119,7 +123,9 @@ body.kiosk-mode .bg-decoration { opacity:0.8; }
     .list-header { margin-bottom:8px; padding-bottom:6px; }
     .tag-list { gap:8px; }
     .tag-list li { font-size:0.85rem; padding:6px 4px; }
+    
     .footer-tools { margin-top:12px; padding-top:12px; }
+    
     .btn-util { height:40px; font-size:0.85rem; }
     .bg-decoration { opacity:0.3; }
 }
