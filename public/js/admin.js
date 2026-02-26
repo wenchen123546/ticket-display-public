@@ -165,7 +165,9 @@ async function loadFrontendTexts() {
     const d = await req("/api/admin/frontend-texts/get") || {};
     const ctr = $("frontend-texts-grid"); if(!ctr) return;
     
+    // ⭐ 在此處補上了 brand_title 欄位
     const keys = [
+        {k:'brand_title', l:'前台大標題 (預設: 即時叫號系統)'},
         {k:'cur', l:'目前叫號標題 (預設: 目前叫號)'}, {k:'iss', l:'已發至標題 (預設: 已發至)'}, {k:'wait_count', l:'等待中標題 (預設: 等待中)'},
         {k:'online', l:'線上取號標題 (預設: 線上取號)'}, {k:'help', l:'線上取號說明 (預設: 免排隊，手機領號)'}, {k:'take', l:'取號按鈕 (預設: 立即取號)'},
         {k:'man_t', l:'號碼提醒標題 (預設: 號碼提醒)'}, {k:'man_p', l:'提醒框提示文字 (預設: 輸入您的號碼...)'}, {k:'track', l:'追蹤按鈕 (預設: 追蹤)'},
