@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - View/Edit Separation, Grouped Permissions & MAX Update
+ * 後台邏輯 (admin.js) - View/Edit Separation, Grouped Permissions & Frontend Texts
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -18,7 +18,6 @@ const req = async (url, data={}, btn=null) => {
     } catch(e) { toast(`❌ ${e.message}`,"error"); return null; } finally { if(btn) setTimeout(()=>btn.disabled=false, 300); }
 };
 
-// 已修改 msg_recall_confirm：移除了 (當前叫號將移入過號名單) 的警告文字
 const i18n={"zh-TW":{status_conn:"✅ 已連線",status_dis:"⚠️ 連線中斷...",saved:"✅ 已儲存",denied:"❌ 權限不足",expired:"Session 過期",login_fail:"登入失敗",confirm:"⚠️ 確認",recall:"↩️ 重呼",edit:"✎ 編輯",del:"✕ 刪除",save:"✓ 儲存",cancel:"✕ 取消",login_title:"請登入管理系統",ph_account:"帳號",ph_password:"密碼",login_btn:"登入",admin_panel:"管理後台",nav_live:"現場控台",nav_stats:"數據報表",nav_booking:"預約管理",nav_settings:"系統設定",nav_line:"LINE設定",logout:"登出",dash_curr:"目前叫號",dash_issued:"已發號至",dash_wait:"等待組數",card_call:"指揮中心",btn_next:"下一號 ▶",btn_prev:"◀ 上一號",btn_pass:"過號",lbl_assign:"指定 / 插隊",btn_exec:"GO",btn_reset_call:"↺ 重置叫號",card_issue:"發號管理",btn_recall:"➖ 收回",btn_issue:"發號 ➕",lbl_fix_issue:"修正發號數",btn_fix:"修正",btn_reset_issue:"↺ 重置發號",card_passed:"過號名單",btn_clear_passed:"清空過號",card_stats:"流量分析",lbl_today:"今日人次",btn_refresh:"重整",btn_calibrate:"校正",btn_clear_stats:"🗑️ 清空統計",card_logs:"操作日誌",btn_clear_logs:"清除日誌",card_sys:"系統",lbl_public:"開放前台",lbl_sound:"提示音效",lbl_tts:"TTS 語音廣播",btn_play:"播放",lbl_mode:"取號模式",mode_online:"線上取號",mode_manual:"手動輸入",btn_reset_all:"💥 全域重置",card_online:"在線管理",card_links:"連結管理",ph_link_name:"名稱",btn_clear_links:"清空連結",card_users:"帳號管理",lbl_add_user:"新增帳號",ph_nick:"暱稱",card_roles:"權限設定",btn_save_roles:"儲存權限變更",btn_save:"儲存",btn_restore:"恢復預設值",modal_edit:"編輯數據",btn_done:"完成",card_booking:"預約管理",lbl_add_appt:"新增預約",wait:"等待...",loading:"載入中...",empty:"[ 空 ]",no_logs:"[ 無日誌 ]",no_appt:"暫無預約",role_operator:"操作員",role_manager:"經理",role_admin:"管理員",msg_recall_confirm:"確定要重呼 %s 嗎？",msg_sent:"📢 已發送",msg_calibrated:"校正完成",perm_role:"角色權限",perm_call:"叫號/指揮",perm_issue:"發號",perm_stats:"數據/日誌",perm_settings:"系統設定",perm_line:"LINE設定",perm_appointment:"預約管理",perm_users:"帳號管理"},"en":{status_conn:"✅ Connected",status_dis:"⚠️ Disconnected...",saved:"✅ Saved",denied:"❌ Denied",expired:"Session Expired",login_fail:"Login Failed",confirm:"⚠️ Confirm",recall:"↩️ Recall",edit:"✎ Edit",del:"✕ Del",save:"✓ Save",cancel:"✕ Cancel",login_title:"Login to Admin Panel",ph_account:"Username",ph_password:"Password",login_btn:"Login",admin_panel:"Admin Panel",nav_live:"Live Console",nav_stats:"Statistics",nav_booking:"Booking",nav_settings:"Settings",nav_line:"Line Config",logout:"Logout",dash_curr:"Current Serving",dash_issued:"Last Issued",dash_wait:"Waiting",card_call:"Command Center",btn_next:"Next ▶",btn_prev:"◀ Prev",btn_pass:"Pass",lbl_assign:"Assign / Jump",btn_exec:"GO",btn_reset_call:"↺ Reset Call",card_issue:"Ticketing",btn_recall:"➖ Recall",btn_issue:"Issue ➕",lbl_fix_issue:"Fix Issued #",btn_fix:"Fix",btn_reset_issue:"↺ Reset Issue",card_passed:"Passed List",btn_clear_passed:"Clear Passed",card_stats:"Analytics",lbl_today:"Today's Count",btn_refresh:"Refresh",btn_calibrate:"Calibrate",btn_clear_stats:"🗑️ Clear Stats",card_logs:"Action Logs",btn_clear_logs:"Clear Logs",card_sys:"System",lbl_public:"Public Access",lbl_sound:"Sound FX",lbl_tts:"TTS Broadcast",btn_play:"Play",lbl_mode:"Mode",mode_online:"Online Ticket",mode_manual:"Manual Input",btn_reset_all:"💥 Factory Reset",card_online:"Online Users",card_links:"Links Manager",ph_link_name:"Name",btn_clear_links:"Clear Links",card_users:"User Manager",lbl_add_user:"Add User",ph_nick:"Nickname",card_roles:"Role Permissions",btn_save_roles:"Save Permission Changes",btn_save:"Save",btn_restore:"Restore Defaults",modal_edit:"Edit Data",btn_done:"Done",card_booking:"Booking Manager",lbl_add_appt:"Add Booking",wait:"Waiting...",loading:"Loading...",empty:"[ Empty ]",no_logs:"[ No Logs ]",no_appt:"No Appointments",role_operator:"Operator",role_manager:"Manager",role_admin:"Admin",msg_recall_confirm:"Recall number %s?",msg_sent:"📢 Sent",msg_calibrated:"Calibrated",perm_role:"Role",perm_call:"Role",perm_issue:"Ticketing",perm_stats:"Stats/Logs",perm_settings:"Settings",perm_line:"Line Config",perm_appointment:"Booking",perm_users:"Users"}};
 
 let curLang=localStorage.getItem('callsys_lang')||'zh-TW', T=i18n[curLang], userRole="normal", username="", uniqueUser="", cachedLine=null, isDark=localStorage.getItem('callsys_admin_theme')==='dark', globalRoleConfig=null;
@@ -41,7 +40,6 @@ const updateLangUI = () => {
     $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
     $$('button[data-original-key]').forEach(b => !b.classList.contains('is-confirming') && (b.textContent = T[b.dataset.originalKey]));
     
-    // View 權限檢查
     if(checkPerm('perm_users_view')) loadUsers();
     if(checkPerm('perm_stats_view') || checkPerm('perm_logs_view')) loadStats();
     if(checkPerm('perm_booking_view')) loadAppointments();
@@ -52,14 +50,12 @@ const updateLangUI = () => {
     if($("section-settings").classList.contains("active") && checkPerm('perm_line_view')) { cachedLine?renderLineSettings():loadLineSettings(); loadLineMessages(); loadLineAutoReplies(); loadLineSystemCommands(); }
     if(username) $("sidebar-user-info").textContent = username;
 
-    // Edit 權限檢查 (禁用/隱藏按鈕)
     const canSysEdit = checkPerm('perm_system_edit');
     if($("public-toggle")) $("public-toggle").disabled = !canSysEdit;
     if($("sound-toggle")) $("sound-toggle").disabled = !canSysEdit;
     if($("ticketing-toggle")) $("ticketing-toggle").disabled = !canSysEdit;
     $$('input[name="systemMode"]').forEach(r => r.disabled = !canSysEdit);
     
-    // 全域重置按鈕顯示控制
     ["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
         const el = $(id); if(!el) return;
         let visible = isSuperAdmin();
@@ -108,7 +104,7 @@ const checkSession = async () => {
             }
         });
 
-        updateLangUI(); socket.connect(); upgradeSystemModeUI(); initBusinessHoursUI();
+        updateLangUI(); socket.connect(); upgradeSystemModeUI(); initBusinessHoursUI(); loadFrontendTexts();
         if($("card-role-management")) $("card-role-management").style.display = (isSuperAdmin() || checkPerm('perm_roles')) ? "flex" : "none";
     } else { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); }
 };
@@ -161,6 +157,31 @@ async function initBusinessHoursUI() {
             e.value = String(d.end).includes(':') ? d.end : String(d.end).padStart(2,'0') + ":00";
         } 
     });
+}
+
+// 載入前台自定義文字
+async function loadFrontendTexts() {
+    if(!checkPerm('perm_system_view')) return;
+    const d = await req("/api/admin/frontend-texts/get") || {};
+    const ctr = $("frontend-texts-grid"); if(!ctr) return;
+    
+    const keys = [
+        {k:'cur', l:'目前叫號標題 (預設: 目前叫號)'}, {k:'iss', l:'已發至標題 (預設: 已發至)'}, {k:'wait_count', l:'等待中標題 (預設: 等待中)'},
+        {k:'online', l:'線上取號標題 (預設: 線上取號)'}, {k:'help', l:'線上取號說明 (預設: 免排隊，手機領號)'}, {k:'take', l:'取號按鈕 (預設: 立即取號)'},
+        {k:'man_t', l:'號碼提醒標題 (預設: 號碼提醒)'}, {k:'man_p', l:'提醒框提示文字 (預設: 輸入您的號碼...)'}, {k:'track', l:'追蹤按鈕 (預設: 追蹤)'},
+        {k:'recall_badge', l:'過號重呼提示標籤 (預設: ↩️ 過號重呼)'}, {k:'sys_close', l:'系統暫停標題 (預設: ⛔ 系統已暫停服務)'}, {k:'sys_close_desc', l:'系統暫停說明 (預設: 請稍候...)'}
+    ];
+    ctr.innerHTML = "";
+    const canEdit = checkPerm('perm_system_edit');
+    
+    keys.forEach(obj => {
+        ctr.appendChild(mk("div", "control-group", null, {}, [
+            mk("label", null, obj.l, {style:"font-size:0.8rem; opacity:0.8;"}),
+            mk("input", "frontend-text-input", null, {id: `f-text-${obj.k}`, placeholder: "留白使用預設", value: d[obj.k]||"", disabled: !canEdit})
+        ]));
+    });
+    const btn = $("btn-save-frontend-texts");
+    if(btn) btn.style.display = canEdit ? "block" : "none";
 }
 
 async function loadLineMessages() {
@@ -219,7 +240,6 @@ async function loadLineAutoReplies() {
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => $("status-bar").classList.add("visible"));
 
-// 廣播接收：計算等待組數時使用 MAX 進度以避免重呼產生負數/錯亂
 socket.on("updateQueue", d => { 
     $("number").textContent = d.current; 
     $("issued-number").textContent = d.issued; 
@@ -373,25 +393,6 @@ async function loadStats() {
     } catch (e) { console.error(e); }
 }
 
-async function loadLineSettings() { cachedLine = await req("/api/admin/line-settings/get"); renderLineSettings(); }
-function renderLineSettings() {
-    const canEdit = checkPerm('perm_line_edit');
-    renderList("line-settings-list-ui", Object.keys(cachedLine||{}), k => {
-        const val=cachedLine[k]||"", edit=mk("div","line-edit-box",null,{style:"display:none;width:100%;"},[mk("textarea",null,null,{value:val,placeholder:"Content..."}), mk("div",null,null,{style:"display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"},[mk("button","btn-secondary",T.cancel,{onclick:()=>{edit.style.display="none";row.style.display="flex";}}), mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[k]:edit.children[0].value})){cachedLine[k]=edit.children[0].value;toast(T.saved,"success");renderLineSettings();}}})])]);
-        const row = mk("div","line-setting-row",null,{style:"display:flex;width:100%;align-items:center;justify-content:space-between;"}, [mk("div","line-setting-info",null,{},[mk("div","line-setting-label",k.split(':').pop(),{style:"font-weight:600;"}), mk("code","line-setting-preview",val||"(未設定)",{style:val?"color:var(--text-sub);":"opacity:0.5"})])]);
-        if(canEdit) row.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}}));
-        return mk("li", "list-item", null, {}, [row, edit]);
-    }, "empty");
-    const pwdInput = $("line-unlock-pwd"), savePwdBtn = $("btn-save-unlock-pwd");
-    if(pwdInput) {
-        req("/api/admin/line-settings/get-unlock-pass").then(r=>{ if(r) pwdInput.value=r.password||""; });
-        pwdInput.disabled = !canEdit;
-    }
-    if(savePwdBtn) savePwdBtn.style.display = canEdit ? "block" : "none";
-}
-
-function renderLogs(logs, init) { const ul=$("admin-log-ui"); if(!ul) return; if(init) ul.innerHTML=""; if(!logs?.length&&init) return ul.innerHTML=`<li class='list-item' style='color:var(--text-sub);'>${T.no_logs}</li>`; const frag=document.createDocumentFragment(); logs.forEach(m=>frag.appendChild(mk("li","list-item",m,{style:"font-family:monospace;font-size:0.8rem;"}))); init?ul.appendChild(frag):ul.insertBefore(frag.firstChild, ul.firstChild); while(ul.children.length>50) ul.removeChild(ul.lastChild); }
-
 const act=(id,api,data={})=>$(id)?.addEventListener("click",async()=>{const n=$("number"),ov=n?parseInt(n.textContent||0):0; if(api.includes('call')&&n&&data.direction){n.textContent=ov+(data.direction==='next'?1:-1);n.style.opacity="0.6";} try{await req(api,data,$(id));}catch(e){if(n)n.textContent=ov;}finally{if(n)n.style.opacity="1";}}), bind=(id,fn)=>$(id)?.addEventListener("click",fn), adjCur=async d=>{const n=$("number"),c=parseInt(n.textContent||0,t=c+d);if(t>0){n.textContent=t;n.style.opacity="0.6";try{if(await req("/api/control/set-call",{number:t}))toast(`${T.saved}: ${t}`,"success");}catch(e){n.textContent=c;}finally{n.style.opacity="1";}}};
 
 bind("btn-call-add-1",()=>adjCur(1)); bind("btn-call-add-5",()=>adjCur(5));
@@ -412,6 +413,19 @@ bind("btn-export-csv",async()=>{const d=await req("/api/admin/export-csv",{date:
 bind("btn-save-line-msgs",async()=>{ const d={}; ["success","approach","arrival","passed","cancel","help","loginPrompt","loginSuccess","noTracking","noPassed","passedPrefix"].forEach(k=>d[k]=$(`msg-${k.replace(/[A-Z]/g,m=>"-"+m.toLowerCase())}`)?.value||""); if(await req("/api/admin/line-messages/save",d,$("btn-save-line-msgs"))) toast(T.saved,"success");});
 bind("btn-save-default-reply",async()=>{if(await req("/api/admin/line-default-reply/save",{reply:$("line-default-msg").value},$("btn-save-default-reply"))) toast(T.saved,"success");});
 bind("btn-add-keyword",async()=>{const k=$("new-keyword-in").value,r=$("new-reply-in").value; if(k&&r&&await req("/api/admin/line-autoreply/save",{keyword:k,reply:r})){$("new-keyword-in").value="";$("new-reply-in").value="";toast(T.saved,"success");loadLineAutoReplies();}});
+
+// 綁定儲存前台文字按鈕
+bind("btn-save-frontend-texts", async () => {
+    const d = {};
+    $$('.frontend-text-input').forEach(inp => {
+        const k = inp.id.replace('f-text-', '');
+        if(inp.value.trim()) d[k] = inp.value.trim();
+    });
+    if(await req("/api/admin/frontend-texts/save", {texts: d}, $("btn-save-frontend-texts"))) {
+        toast(T.saved, "success");
+    }
+});
+
 bind("login-button",async()=>{const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:$("username-input").value,password:$("password-input").value})}).then(x=>x.json()).catch(()=>({error:T.login_fail}));if(r.success){localStorage.setItem('callsys_user',r.username);localStorage.setItem('callsys_role',r.userRole);localStorage.setItem('callsys_nick',r.nickname);checkSession();}else $("login-error").textContent=r.error||T.login_fail;});
 bind("btn-logout",logout); bind("btn-logout-mobile",logout);
 ["admin-theme-toggle","admin-theme-toggle-mobile"].forEach(i=>bind(i,()=>{isDark=!isDark;applyTheme();}));
