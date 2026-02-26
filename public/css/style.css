@@ -28,6 +28,16 @@ body.dark-mode .orb { opacity:.25; filter:blur(120px); }
 .btn-icon:active, .lang-switch:active { transform:scale(.95); background:var(--border); }
 
 .hero-section { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 20px; text-align:center; flex-shrink:0; position:relative; overflow:hidden; }
+
+/* --- 前台大標題樣式 --- */
+.brand-title { font-size: 1.6rem; font-weight: 900; color: var(--primary); margin: 0 0 16px 0; letter-spacing: 1px; }
+body.dark-mode .brand-title { color: var(--primary); filter: brightness(1.2); }
+body.kiosk-mode .brand-title { font-size: 4rem; margin-bottom: 30px; }
+@media (max-width:768px) {
+    .brand-title { font-size: 1.3rem; margin-bottom: 12px; }
+}
+/* -------------------- */
+
 .hero-label { font-size:.8rem; font-weight:800; color:var(--text-light); letter-spacing:2px; text-transform:uppercase; margin:0; opacity:.8; }
 #number { font-size:clamp(5rem,22vw,9rem); font-weight:900; line-height:1.1; margin:4px 0 20px; background:linear-gradient(180deg,var(--num-start) 0%,var(--num-end) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 4px 10px rgba(79,70,229,.15)); }
 body.dark-mode #number { filter:drop-shadow(0 0 25px rgba(129,140,248,.4)); }
@@ -72,7 +82,6 @@ body.dark-mode .my-ticket-card { background:linear-gradient(145deg,#312e81 0%,#1
 .tag-list li:hover { transform:translateY(-2px); }
 .empty-state { color:var(--text-light); font-size:.9rem; text-align:center; padding:10px; font-style:italic; opacity:.7; }
 
-/* -- 處理精選連結與上方間距連動區 -- */
 .footer-tools { margin-top:16px; padding-top:16px; border-top:1px dashed var(--border); transition: margin 0.3s, padding 0.3s; }
 .control-body[style*="display: none"] + .footer-tools { margin-top:0; padding-top:0; border-top:none; }
 
