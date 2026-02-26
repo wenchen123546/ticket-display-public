@@ -1,4 +1,4 @@
-/* Server v18.14 - 包含讀寫分離、卡片隱藏權限控制、叫號開關與 MAX 進度解耦 */
+/* Server v18.14 - 包含讀寫分離、卡片隱藏權限控制、叫號開關、MAX 進度解耦與前台文字自定義 */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io"), Redis = require("ioredis"),
       helmet = require('helmet'), rateLimit = require('express-rate-limit'), { v4: uuidv4 } = require('uuid'),
@@ -16,8 +16,8 @@ const DEFAULT_ROLES = {
     ADMIN: { level: 9, can: ['*'] } 
 };
 
-// 新增 MAX 變數，用於記憶最大叫號進度
-const KEYS = { CURRENT: 'callsys:number', MAX: 'callsys:max', ISSUED: 'callsys:issued', MODE: 'callsys:mode', PASSED: 'callsys:passed', FEATURED: 'callsys:featured', LOGS: 'callsys:admin-log', USERS: 'callsys:users', NICKS: 'callsys:nicknames', USER_ROLES: 'callsys:user_roles', SESSION: 'callsys:session:', HISTORY: 'callsys:stats:history', HOURLY: 'callsys:stats:hourly:', ROLES: 'callsys:config:roles', HOURS: 'callsys:config:hours', LINE: { SUB: 'callsys:line:notify:', USER: 'callsys:line:user:', PWD: 'callsys:line:unlock_pwd', ADMIN: 'callsys:line:admin_session:', CTX: 'callsys:line:context:', ACTIVE: 'callsys:line:active_subs_set', CFG_TOKEN: 'callsys:line:cfg:token', CFG_SECRET: 'callsys:line:cfg:secret', MSG: { APPROACH: 'callsys:line:msg:approach', ARRIVAL: 'callsys:line:msg:arrival', SUCCESS: 'callsys:line:msg:success', PASSED: 'callsys:line:msg:passed', CANCEL: 'callsys:line:msg:cancel', DEFAULT: 'callsys:line:msg:default', HELP: 'callsys:line:msg:help', LOGIN_PROMPT: 'callsys:line:msg:login_prompt', LOGIN_SUCCESS: 'callsys:line:msg:login_success', NO_TRACKING: 'callsys:line:msg:no_tracking', NO_PASSED: 'callsys:line:msg:no_passed', PASSED_PREFIX: 'callsys:line:msg:passed_prefix' }, CMD: { LOGIN: 'callsys:line:cmd:login', STATUS: 'callsys:line:cmd:status', CANCEL: 'callsys:line:cmd:cancel', PASSED: 'callsys:line:cmd:passed', HELP: 'callsys:line:cmd:help' }, AUTOREPLY: 'callsys:line:autoreply_rules' } };
+// 新增 FRONTEND_TEXTS 用於儲存前台自定義文字
+const KEYS = { CURRENT: 'callsys:number', MAX: 'callsys:max', ISSUED: 'callsys:issued', MODE: 'callsys:mode', PASSED: 'callsys:passed', FEATURED: 'callsys:featured', LOGS: 'callsys:admin-log', USERS: 'callsys:users', NICKS: 'callsys:nicknames', USER_ROLES: 'callsys:user_roles', SESSION: 'callsys:session:', HISTORY: 'callsys:stats:history', HOURLY: 'callsys:stats:hourly:', ROLES: 'callsys:config:roles', HOURS: 'callsys:config:hours', FRONTEND_TEXTS: 'callsys:config:frontend_texts', LINE: { SUB: 'callsys:line:notify:', USER: 'callsys:line:user:', PWD: 'callsys:line:unlock_pwd', ADMIN: 'callsys:line:admin_session:', CTX: 'callsys:line:context:', ACTIVE: 'callsys:line:active_subs_set', CFG_TOKEN: 'callsys:line:cfg:token', CFG_SECRET: 'callsys:line:cfg:secret', MSG: { APPROACH: 'callsys:line:msg:approach', ARRIVAL: 'callsys:line:msg:arrival', SUCCESS: 'callsys:line:msg:success', PASSED: 'callsys:line:msg:passed', CANCEL: 'callsys:line:msg:cancel', DEFAULT: 'callsys:line:msg:default', HELP: 'callsys:line:msg:help', LOGIN_PROMPT: 'callsys:line:msg:login_prompt', LOGIN_SUCCESS: 'callsys:line:msg:login_success', NO_TRACKING: 'callsys:line:msg:no_tracking', NO_PASSED: 'callsys:line:msg:no_passed', PASSED_PREFIX: 'callsys:line:msg:passed_prefix' }, CMD: { LOGIN: 'callsys:line:cmd:login', STATUS: 'callsys:line:cmd:status', CANCEL: 'callsys:line:cmd:cancel', PASSED: 'callsys:line:cmd:passed', HELP: 'callsys:line:cmd:help' }, AUTOREPLY: 'callsys:line:autoreply_rules' } };
 
 app.disable('x-powered-by'); app.use(helmet({ contentSecurityPolicy: false })); app.use(express.static(path.join(__dirname, "public")));
 const server = Server(app), io = socketio(server, { cors: { origin: ALLOWED_ORIGINS ? ALLOWED_ORIGINS.split(',') : ["http://localhost:3000"], methods: ["GET", "POST"], credentials: true }, pingTimeout: 60000 });
@@ -32,7 +32,6 @@ const initDB = () => new Promise((res, rej) => db.serialize(() => { db.run("PRAG
 setInterval(() => { if (!dbQueue.length) return; const batch = [...dbQueue]; dbQueue.length = 0; db.serialize(() => { db.run("BEGIN TRANSACTION"); const s = db.prepare("INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)"); batch.forEach(r => s.run([r.dateStr, r.timestamp, r.number, r.action, r.operator, r.wait_time_min])); s.finalize(); db.run("COMMIT", e => e && console.error("Batch Error:", e)); }); }, DB_FLUSH_INTERVAL);
 const dbQ = (m, s, p=[]) => new Promise((res, rej) => db[m](s, p, function(e, r){ e ? rej(e) : res(m==='run'?this:r) })), [run, all, get] = ['run', 'all', 'get'].map(m => (s, p) => dbQ(m, s, p));
 
-// Redis Lua 腳本，解耦 MAX 與 CURRENT
 redis.defineCommand("safeNextNumber", { numberOfKeys: 3, lua: `local m=tonumber(redis.call("GET",KEYS[1])) local c=tonumber(redis.call("GET",KEYS[2])) or 0 if not m then m=c end local i=tonumber(redis.call("GET",KEYS[3])) or 0 if m < i then m=m+1 redis.call("SET",KEYS[1],m) redis.call("SET",KEYS[2],m) return m else return -1 end` });
 redis.defineCommand("decrIfPositive", { numberOfKeys: 2, lua: `local c=tonumber(redis.call("GET",KEYS[1])) or 0 local m=tonumber(redis.call("GET",KEYS[2])) or 0 if c > 0 then local nc=c-1 redis.call("SET",KEYS[1],nc) if m==c then redis.call("SET",KEYS[2],nc) end return nc end return c` });
 
@@ -43,7 +42,6 @@ const addLog = async (n, m) => { const t = new Date().toLocaleTimeString('zh-TW'
 const parseCookie = s => s.split(';').reduce((a, v) => { const [k, val] = v.split('=').map(x=>x.trim()); a[k] = decodeURIComponent(val); return a; }, {});
 let bCastT = null, cacheWait = 0, lastWaitCalc = 0;
 
-// 廣播加入 MAX 進度
 const broadcastQueue = async () => { if (bCastT) clearTimeout(bCastT); bCastT = setTimeout(async () => { let [c, i, m] = (await redis.mget(KEYS.CURRENT, KEYS.ISSUED, KEYS.MAX)).map(v => parseInt(v)||0); if(i<c) { i=c; await redis.set(KEYS.ISSUED, i); } if(m<c) { m=c; await redis.set(KEYS.MAX, m); } io.emit("update", c); io.emit("updateQueue", { current: c, issued: i, max: m }); io.emit("updateWaitTime", await calcWaitTime()); io.emit("updateTimestamp", new Date().toISOString()); }, 100); };
 const broadcastAppts = async () => io.to("admin").emit("updateAppointments", await all("SELECT * FROM appointments WHERE status='pending' ORDER BY scheduled_time ASC"));
 
@@ -159,14 +157,12 @@ app.post("/api/control/pass-current", auth, perm('perm_passed_edit'), H(async re
     dbQueue.push({dateStr, timestamp: Date.now(), number: c, action: 'pass', operator: req.user.nickname, wait_time_min: await calcWaitTime()}); checkLine(next); await broadcastQueue(); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); return { next };
 }));
 
-// 已修改：移除自動將當前號碼移入過號清單的邏輯
 app.post("/api/control/recall-passed", auth, perm('perm_passed_edit'), H(async r => { const n = parseInt(r.body.number), c = parseInt(await redis.get(KEYS.CURRENT))||0; const m = parseInt(await redis.get(KEYS.MAX))||0; if(c > m) await redis.set(KEYS.MAX, c); await redis.zrem(KEYS.PASSED, n); await redis.set(KEYS.CURRENT, n); addLog(r.user.nickname, `↩️ 重呼 ${n}`); await broadcastQueue(); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); }));
 
 app.post("/api/passed/add", auth, perm('perm_passed_edit'), H(async r => { const n = parseInt(r.body.number); if(n>0) { await redis.zadd(KEYS.PASSED, n, n); await redis.hincrby(`${KEYS.HOURLY}${getTWTime().dateStr}`, `${getTWTime().hour}_p`, 1); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); addLog(r.user.nickname, `➕ 手動過號 ${n}`); } }));
 app.post("/api/passed/remove", auth, perm('perm_passed_edit'), H(async r => { const n = parseInt(r.body.number); if(n>0) { await redis.zrem(KEYS.PASSED, n); await redis.hincrby(`${KEYS.HOURLY}${getTWTime().dateStr}`, `${getTWTime().hour}_p`, -1); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); addLog(r.user.nickname, `🗑️ 移除過號 ${n}`); } }));
 app.post("/api/passed/clear", auth, perm('perm_passed_edit'), H(async r => { await redis.del(KEYS.PASSED); io.emit("updatePassed", []); addLog(r.user.nickname, "🗑️ 清空過號名單"); }));
 
-// --- Admin API ---
 app.post("/api/admin/users", auth, perm('perm_users_view'), H(async r => ({ users: await Promise.all([{username:'superadmin',nickname:await redis.hget(KEYS.NICKS,'superadmin')||'Super',role:'ADMIN'}, ...(await redis.hkeys(KEYS.USERS)).map(x=>({username:x}))].map(async u=>{ if(u.username!=='superadmin'){u.nickname=await redis.hget(KEYS.NICKS,u.username)||u.username; u.role=await redis.hget(KEYS.USER_ROLES,u.username)||'OPERATOR';} return u; })) })));
 app.post("/api/admin/add-user", auth, perm('perm_users_edit'), H(async r=>{ if(await redis.hexists(KEYS.USERS, r.body.newUsername)) throw new Error("已存在"); await redis.hset(KEYS.USERS, r.body.newUsername, await bcrypt.hash(r.body.newPassword,10)); await redis.hset(KEYS.NICKS, r.body.newUsername, r.body.newNickname); await redis.hset(KEYS.USER_ROLES, r.body.newUsername, r.body.newRole||'OPERATOR'); }));
 app.post("/api/admin/del-user", auth, perm('perm_users_edit'), H(async r=>{ if(r.body.delUsername==='superadmin') throw new Error("不可刪除"); await redis.hdel(KEYS.USERS, r.body.delUsername); await redis.hdel(KEYS.NICKS, r.body.delUsername); await redis.hdel(KEYS.USER_ROLES, r.body.delUsername); }));
@@ -200,12 +196,11 @@ app.post("/reset", auth, perm('perm_system_edit'), H(async r => resetSys(r.user.
 app.post("/api/admin/broadcast", auth, perm('perm_system_edit'), H(async r => { io.emit("adminBroadcast", r.body.message); addLog(r.user.nickname, `📢 廣播: ${r.body.message}`); }));
 
 app.post("/api/admin/settings/hours/get", auth, perm('perm_system_view'), H(async r => JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false, start: "08:00", end: "22:00" }));
-app.post("/api/admin/settings/hours/save", auth, perm('perm_system_edit'), H(async r => { 
-    const cfg = { start: r.body.start, end: r.body.end, enabled: !!r.body.enabled };
-    await redis.set(KEYS.HOURS, JSON.stringify(cfg)); 
-    addLog(r.user.nickname, `🔧 更新營業時間 ${cfg.start}-${cfg.end}`); 
-    io.emit("updateBusinessHours", cfg); 
-}));
+app.post("/api/admin/settings/hours/save", auth, perm('perm_system_edit'), H(async r => { const cfg = { start: r.body.start, end: r.body.end, enabled: !!r.body.enabled }; await redis.set(KEYS.HOURS, JSON.stringify(cfg)); addLog(r.user.nickname, `🔧 更新營業時間 ${cfg.start}-${cfg.end}`); io.emit("updateBusinessHours", cfg); }));
+
+// 儲存與獲取前台自定義文字 API
+app.post("/api/admin/frontend-texts/get", auth, perm('perm_system_view'), H(async r => JSON.parse(await redis.get(KEYS.FRONTEND_TEXTS)) || {}));
+app.post("/api/admin/frontend-texts/save", auth, perm('perm_system_edit'), H(async r => { await redis.set(KEYS.FRONTEND_TEXTS, JSON.stringify(r.body.texts)); io.emit("updateFrontendTexts", r.body.texts); addLog(r.user.nickname, "🔧 更新前台顯示文字"); }));
 
 app.post("/api/admin/line-settings/get", auth, perm('perm_line_view'), H(async r => ({ "LINE Access Token": await redis.get(KEYS.LINE.CFG_TOKEN), "LINE Channel Secret": await redis.get(KEYS.LINE.CFG_SECRET) })));
 app.post("/api/admin/line-settings/save", auth, perm('perm_line_edit'), H(async r => { if(r.body["LINE Access Token"]) await redis.set(KEYS.LINE.CFG_TOKEN, r.body["LINE Access Token"]); if(r.body["LINE Channel Secret"]) await redis.set(KEYS.LINE.CFG_SECRET, r.body["LINE Channel Secret"]); initLine(); addLog(r.user.nickname, "🔧 更新 LINE 設定"); }));
@@ -233,7 +228,7 @@ io.use(async (s, next) => { try { const t = s.handshake.auth.token || parseCooki
 io.on("connection", async s => {
     if(s.user) { s.join("admin"); const socks = await io.in("admin").fetchSockets(); io.to("admin").emit("updateOnlineAdmins", [...new Map(socks.map(x=>x.user&&[x.user.username, x.user]).filter(Boolean)).values()]); s.emit("initAdminLogs", await redis.lrange(KEYS.LOGS,0,99)); broadcastAppts(); }
     s.join('public'); 
-    const [c,i,p,f,snd,pub,m,h,allowT,max] = await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.zrange(KEYS.PASSED,0,-1),redis.lrange(KEYS.FEATURED,0,-1),redis.get("callsys:soundEnabled"),redis.get("callsys:isPublic"),redis.get(KEYS.MODE), redis.get(KEYS.HOURS), redis.get("callsys:allowTicketing"), redis.get(KEYS.MAX)]);
+    const [c,i,p,f,snd,pub,m,h,allowT,max,fTexts] = await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.zrange(KEYS.PASSED,0,-1),redis.lrange(KEYS.FEATURED,0,-1),redis.get("callsys:soundEnabled"),redis.get("callsys:isPublic"),redis.get(KEYS.MODE), redis.get(KEYS.HOURS), redis.get("callsys:allowTicketing"), redis.get(KEYS.MAX), redis.get(KEYS.FRONTEND_TEXTS)]);
     s.emit("update",Number(c)); 
     s.emit("updateQueue",{current:Number(c),issued:Number(i), max:Number(max)||Number(c)}); 
     s.emit("updatePassed",p.map(Number)); 
@@ -244,6 +239,7 @@ io.on("connection", async s => {
     s.emit("updateWaitTime",await calcWaitTime()); 
     s.emit("updateTicketingEnabled", allowT!=="0");
     s.emit("updateBusinessHours", h ? JSON.parse(h) : {enabled:false});
+    s.emit("updateFrontendTexts", fTexts ? JSON.parse(fTexts) : {});
 });
 
 initDB().then(() => server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.14 running on ${PORT}`))).catch(e => { console.error(e); process.exit(1); });
