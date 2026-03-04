@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - View/Edit Separation, Grouped Permissions & Frontend Texts
+ * 後台邏輯 (admin.js) - View/Edit Separation, Grouped Permissions & Frontend Texts & Idle Timeout
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -89,6 +89,31 @@ const checkPerm = (p) => {
 const isSuperAdmin = () => (uniqueUser === 'superadmin' || userRole === 'super' || userRole === 'ADMIN');
 const logout = () => { localStorage.clear(); document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"; location.reload(); };
 
+// ==========================================
+// 閒置自動登出機制 (Idle Timeout)
+// ==========================================
+let idleTimer;
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 預設 30 分鐘 (1800000 毫秒)
+
+const resetIdleTimer = () => {
+    clearTimeout(idleTimer);
+    // 只有在已經登入 (uniqueUser 存在) 且後台畫面顯示時才啟動計時
+    if (uniqueUser && $("admin-panel").style.display !== "none") {
+        idleTimer = setTimeout(() => {
+            alert(T.expired || "閒置時間過長，為保護系統安全，已自動登出。");
+            logout();
+        }, IDLE_TIMEOUT);
+    }
+};
+
+// 監聽使用者的各種互動行為來重置計時器 (加入 passive: true 提升效能)
+['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+    document.addEventListener(evt, resetIdleTimer, { passive: true });
+});
+
+// ==========================================
+// Session 檢查
+// ==========================================
 const checkSession = async () => {
     uniqueUser = localStorage.getItem('callsys_user'); userRole = localStorage.getItem('callsys_role'); username = localStorage.getItem('callsys_nick');
     if(uniqueUser === 'superadmin' && userRole !== 'ADMIN') { userRole = 'ADMIN'; localStorage.setItem('callsys_role', 'ADMIN'); }
@@ -106,7 +131,15 @@ const checkSession = async () => {
 
         updateLangUI(); socket.connect(); upgradeSystemModeUI(); initBusinessHoursUI(); loadFrontendTexts();
         if($("card-role-management")) $("card-role-management").style.display = (isSuperAdmin() || checkPerm('perm_roles')) ? "flex" : "none";
-    } else { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); }
+        
+        // 啟動閒置偵測計時器
+        resetIdleTimer();
+    } else { 
+        $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); 
+        
+        // 確保未登入時清除計時器
+        clearTimeout(idleTimer);
+    }
 };
 
 function upgradeSystemModeUI() {
@@ -165,7 +198,6 @@ async function loadFrontendTexts() {
     const d = await req("/api/admin/frontend-texts/get") || {};
     const ctr = $("frontend-texts-grid"); if(!ctr) return;
     
-    // ⭐ 在此處補上了 brand_title 欄位
     const keys = [
         {k:'brand_title', l:'前台大標題 (預設: 即時叫號系統)'},
         {k:'cur', l:'目前叫號標題 (預設: 目前叫號)'}, {k:'iss', l:'已發至標題 (預設: 已發至)'}, {k:'wait_count', l:'等待中標題 (預設: 等待中)'},
