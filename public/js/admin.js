@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - View/Edit Separation, Grouped Permissions & Frontend Texts & Idle Timeout
+ * 後台邏輯 (admin.js) - View/Edit Separation, Grouped Permissions & Frontend Texts
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => {
@@ -136,7 +136,6 @@ const checkSession = async () => {
         resetIdleTimer();
     } else { 
         $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); 
-        
         // 確保未登入時清除計時器
         clearTimeout(idleTimer);
     }
@@ -270,6 +269,48 @@ async function loadLineAutoReplies() {
         return mk("li","list-item",null,{style:"flex-wrap:wrap;align-items:flex-start;"},[view,acts,form]);
     });
 }
+
+// 渲染操作日誌
+const renderLogs = (logs, isInit) => {
+    const ul = $("admin-log-ui"); 
+    if(!ul) return;
+    
+    // 如果是初始載入，先清空列表
+    if(isInit) ul.innerHTML = "";
+    
+    // 如果沒有日誌資料
+    if(!logs || logs.length === 0) {
+        if(isInit) ul.innerHTML = `<li class="list-item" style="justify-content:center;color:var(--text-sub);">${T.no_logs||'[ 無日誌 ]'}</li>`;
+        return;
+    }
+    
+    // 移除「無日誌」的提示文字
+    if(ul.firstChild && ul.firstChild.textContent === (T.no_logs||'[ 無日誌 ]')) {
+        ul.innerHTML = "";
+    }
+    
+    const frag = document.createDocumentFragment();
+    logs.forEach(l => {
+        const li = mk("li", "list-item", null, {style:"font-size:0.85rem; padding: 8px 12px;"});
+        
+        // 解析後端傳來的格式: [時間] [操作人] 動作
+        const match = l.match(/^\[(.*?)\] \[(.*?)\] (.*)$/);
+        if(match) {
+            li.innerHTML = `
+                <span style="color:var(--text-light); margin-right:8px; font-family:'JetBrains Mono', monospace;">[${match[1]}]</span>
+                <span style="color:var(--primary); font-weight:bold; margin-right:8px;">${match[2]}</span>
+                <span style="color:var(--text-main);">${match[3]}</span>
+            `;
+        } else {
+            // 如果格式不符，直接顯示純文字
+            li.textContent = l;
+        }
+        frag.appendChild(li);
+    });
+    
+    // 如果是初始載入，往下附加；如果是單筆新增，則插入到最頂端
+    isInit ? ul.appendChild(frag) : ul.insertBefore(frag, ul.firstChild);
+};
 
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => $("status-bar").classList.add("visible"));
