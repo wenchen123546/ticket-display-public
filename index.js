@@ -39,12 +39,16 @@ redis.on('error', e => {
     lastRedisErr = e.message; lastRedisErrAt = Date.now();
     console.error('Redis Error:', e.message, e.code === 'ENOTFOUND' ? '→ 找不到 Redis 主機：請確認 UPSTASH_REDIS_URL 是否正確，或 Upstash 資料庫是否已被刪除' : '');
 });
-redis.on('ready', () => { lastRedisErr = ''; console.log('✅ Redis Ready'); });
+// 每次連上 (含斷線重連) 都重新初始化，避免啟動時 Redis 不可用導致 LINE 推播永遠未啟用
+redis.on('ready', () => {
+    lastRedisErr = ''; console.log('✅ Redis Ready');
+    initLine().catch(e => console.error("LINE Init Error:", e.message));
+    redis.setnx(KEYS.ROLES, JSON.stringify(DEFAULT_ROLES)).catch(e => console.error("Roles Init Error:", e.message));
+});
 const db = new sqlite3.Database(path.join(__dirname, 'callsys.db')), dbQueue = [];
 
 let lineClient = null;
 const initLine = async () => { const [t, s] = await redis.mget(KEYS.LINE.CFG_TOKEN, KEYS.LINE.CFG_SECRET); if ((t||LAT) && (s||LCS)) lineClient = new line.messagingApi.MessagingApiClient({ channelAccessToken: t||LAT }); else { lineClient = null; console.warn("⚠️ LINE Token Missing"); } };
-initLine().catch(e => console.error("LINE Init Error:", e.message));
 
 const initDB = () => new Promise((res, rej) => db.serialize(() => { db.run("PRAGMA journal_mode=WAL;"); db.run(`CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, date_str TEXT, timestamp INTEGER, number INTEGER, action TEXT, operator TEXT, wait_time_min REAL)`); db.run(`CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY, number INTEGER, scheduled_time INTEGER, status TEXT DEFAULT 'pending')`); db.run("CREATE INDEX IF NOT EXISTS idx_history_date ON history(date_str)"); db.run("CREATE INDEX IF NOT EXISTS idx_history_action_ts ON history(action, timestamp)"); db.run("CREATE INDEX IF NOT EXISTS idx_history_ts ON history(timestamp)", e => e ? rej(e) : (console.log("✅ DB Ready"), res())); }));
 // 批次寫入歷史紀錄 (定時器與關機流程共用)
@@ -58,8 +62,6 @@ const dbQ = (m, s, p=[]) => new Promise((res, rej) => db[m](s, p, function(e, r)
 
 redis.defineCommand("safeNextNumber", { numberOfKeys: 3, lua: `local m=tonumber(redis.call("GET",KEYS[1])) local c=tonumber(redis.call("GET",KEYS[2])) or 0 if not m then m=c end local i=tonumber(redis.call("GET",KEYS[3])) or 0 if m < i then m=m+1 redis.call("SET",KEYS[1],m) redis.call("SET",KEYS[2],m) return m else return -1 end` });
 redis.defineCommand("decrIfPositive", { numberOfKeys: 2, lua: `local c=tonumber(redis.call("GET",KEYS[1])) or 0 local m=tonumber(redis.call("GET",KEYS[2])) or 0 if c > 0 then local nc=c-1 redis.call("SET",KEYS[1],nc) if m==c then redis.call("SET",KEYS[2],nc) end return nc end return c` });
-
-redis.setnx(KEYS.ROLES, JSON.stringify(DEFAULT_ROLES)).catch(e => console.error("Roles Init Error:", e.message));
 
 const TW_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 const getTWTime = () => { const p = Object.fromEntries(TW_FMT.formatToParts(new Date()).map(x => [x.type, x.value])); return { dateStr: `${p.year}-${p.month}-${p.day}`, hour: parseInt(p.hour) % 24, minute: parseInt(p.minute) }; };
